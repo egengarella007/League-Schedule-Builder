@@ -9,6 +9,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzd
 # Supabase Service Role Key (for server-side operations)
 SUPABASE_SERVICE_ROLE_KEY=YOUR_ACTUAL_SERVICE_ROLE_KEY_HERE
 
+# Python Scheduler URL (Cloud Run)
+SCHEDULER_URL=https://league-schedule-builder-504b5990bc4028ea63b2a4ca73b8784ee68fad9a-ew.a.run.app
+
 # To get your service role key:
 # 1. Go to Supabase Dashboard
 # 2. Settings → API
