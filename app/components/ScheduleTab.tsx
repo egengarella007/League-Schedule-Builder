@@ -236,17 +236,7 @@ export default function ScheduleTab({ slots: propSlots, teams: propTeams, divisi
     }
   } | null>(null)
   const [showOptimizationModal, setShowOptimizationModal] = useState(false)
-  const [conflicts, setConflicts] = useState<Array<{
-    team: string
-    date: string
-    games: Array<{ gameNumber: number, home: string, away: string, time: string, rink: string }>
-  }>>([])
-  const [isResolvingConflicts, setIsResolvingConflicts] = useState(false)
-  const [conflictResolutionResults, setConflictResolutionResults] = useState<{
-    resolved: number
-    total: number
-    details: string[]
-  } | null>(null)
+
   const [isDaysOptimizing, setIsDaysOptimizing] = useState(false)
   const [daysOptimizeComplete, setDaysOptimizeComplete] = useState(false)
   const [currentDaysOptimizeWeek, setCurrentDaysOptimizeWeek] = useState<number | null>(null)
@@ -1828,36 +1818,10 @@ export default function ScheduleTab({ slots: propSlots, teams: propTeams, divisi
           </div>
         )}
 
-        {/* Conflict Resolution Tool */}
-        {currentSchedule.length > 0 && (
-          <div className="mt-6 pt-6 border-t border-gray-700">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h4 className="text-lg font-medium text-gray-300 mb-2">Conflict Resolution Tool</h4>
-                <p className="text-sm text-gray-400">
-                  Detect and automatically resolve same-day conflicts using smart game swapping
-                </p>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={detectConflicts}
-                  className="bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  Detect Conflicts
-                </button>
-                <button
-                  onClick={resolveConflicts}
-                  disabled={conflicts.length === 0 || isResolvingConflicts}
-                  className="bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
-                >
-                  <Zap className="w-4 h-4" />
-                  {isResolvingConflicts ? 'Resolving...' : 'Resolve Conflicts'}
-                </button>
-              </div>
-            </div>
 
-            {/* Conflicts Display */}
+
+
+
             {conflicts.length > 0 && (
               <div className="bg-red-900/20 border border-red-700 rounded-lg p-4 mb-4">
                 <h5 className="text-red-300 font-medium mb-3">
@@ -1886,35 +1850,9 @@ export default function ScheduleTab({ slots: propSlots, teams: propTeams, divisi
               </div>
             )}
 
-            {/* Resolution Results */}
-            {conflictResolutionResults && (
-              <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
-                <h5 className="text-green-300 font-medium mb-3">
-                  ✅ Conflict Resolution Complete
-                </h5>
-                <div className="text-green-400 mb-3">
-                  Resolved {conflictResolutionResults.resolved} of {conflictResolutionResults.total} conflicts
-                </div>
-                <div className="space-y-2 text-sm">
-                  {conflictResolutionResults.details.map((detail, index) => (
-                    <div key={index} className="text-green-300">
-                      {detail}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
-            {/* No Conflicts Message */}
-            {conflicts.length === 0 && currentSchedule.length > 0 && !conflictResolutionResults && (
-              <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
-                <div className="text-green-300 text-center">
-                  🎉 No same-day conflicts detected! Your schedule is conflict-free.
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+
+
         </div>
       )}
 
