@@ -1,0 +1,19 @@
+# Environment variables for Vercel deployment
+# Copy this to your .env.local file for local development
+# Add these to your Vercel project environment variables for production
+
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=https://zcoupiuradompbrsebdp.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpjb3VwaXVyYWRvbXBicnNlYmRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY2MzQ3OTMsImV4cCI6MjA3MjIxMDc5M30.OaveieA8KkcWyMZr-H-0xwO6A38zjpGaFIJp3okfZlI
+
+# Supabase Service Role Key (for server-side operations)
+SUPABASE_SERVICE_ROLE_KEY=YOUR_ACTUAL_SERVICE_ROLE_KEY_HERE
+
+# To get your service role key:
+# 1. Go to Supabase Dashboard
+# 2. Settings → API
+# 3. Copy the "service_role" key (starts with eyJ...)
+# 4. Replace YOUR_ACTUAL_SERVICE_ROLE_KEY_HERE with the copied key
+
+# Note: NEXT_PUBLIC_ variables are exposed to the browser
+# Non-NEXT_PUBLIC_ variables are only available server-side

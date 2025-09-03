@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "league-scheduler"
+version = "0.1.0"
+description = "Production-quality league scheduler with greedy engine and optimization passes"
+authors = [{name = "League Scheduler Team"}]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.0.0",
+    "openpyxl>=3.1.0",
+    "xlsxwriter>=3.1.0",
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
+    "streamlit>=1.28.0",
+    "python-multipart>=0.0.6",
+    "pytz>=2023.3",
+]
+
+[project.scripts]
+league-scheduler = "scheduler.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["scheduler*", "api*", "ui*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+

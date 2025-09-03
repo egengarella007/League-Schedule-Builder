@@ -1,0 +1,41 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ImportedData {
+  id          String   @id @default(cuid())
+  fileName    String
+  uploadedAt  DateTime @default(now())
+  totalRows   Int
+  startDate   String?
+  endDate     String?
+  earlyCount  Int      @default(0)
+  midCount    Int      @default(0)
+  lateCount   Int      @default(0)
+  emlThresholds Json?  // Store the E/M/L thresholds as JSON
+  slots       Slot[]
+  
+  @@map("imported_data")
+}
+
+model Slot {
+  id            String       @id @default(cuid())
+  importedDataId String
+  importedData  ImportedData @relation(fields: [importedDataId], references: [id], onDelete: Cascade)
+  type          String?      // Type column
+  eventStart    String       // Event Start column
+  eventEnd      String       // Event End column
+  resource      String       // Resource column
+  emlCategory   String       // E/M/L classification
+  rowIndex      Int          // Original row index for ordering
+  
+  @@map("slots")
+}

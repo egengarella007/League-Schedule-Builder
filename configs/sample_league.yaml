@@ -1,0 +1,83 @@
+timezone: "America/Chicago"
+
+# Slot import configuration
+columns:
+  start: "Event Start"
+  end: "Event End"
+  resource: "Resource"
+
+# League divisions and teams
+divisions:
+  - name: "North"
+    sub_divisions:
+      - name: "12-Team"
+        teams: 
+          - "Team 1"
+          - "Team 2"
+          - "Team 3"
+          - "Team 4"
+          - "Team 5"
+          - "Team 6"
+          - "Team 7"
+          - "Team 8"
+          - "Team 9"
+          - "Team 10"
+          - "Team 11"
+          - "Team 12"
+  
+  - name: "South"
+    sub_divisions:
+      - name: "8-Team"
+        teams:
+          - "South Team 1"
+          - "South Team 2"
+          - "South Team 3"
+          - "South Team 4"
+          - "South Team 5"
+          - "South Team 6"
+          - "South Team 7"
+          - "South Team 8"
+
+# Scheduling rules
+rest_min_days: 3
+max_gap_days: 12
+target_gap_days: 7
+smoothing_window_days: 10
+
+# Weekday balance settings
+weekday_heavy_threshold: 8
+weekday_light_threshold: 1
+weekday_balance_prefer: 
+  - "Tuesday"
+  - "Wednesday"
+  - "Thursday"
+  - "Monday"
+  - "Friday"
+  - "Sunday"
+
+# Home/away balance
+home_away_band: 2
+
+# E/M/L time cutoffs (24-hour format)
+eml_cutoffs:
+  early_end: "21:59"
+  mid_end: "22:34"
+
+# Weights for scheduling objectives
+weights:
+  eml_need: 1.0
+  idle_urgency: 3.0
+  home_away_bias: 0.5
+  week_rotation: 0.2
+
+# Random seed for reproducibility
+seed: 42
+
+# Excel output configuration
+excel:
+  include_summaries: true
+  sheets:
+    final_name: "Final Schedule"
+    eml_spread: "E-M-L Spread"
+    weekday_spread: "Weekday Spread"
+    swap_logs: true
