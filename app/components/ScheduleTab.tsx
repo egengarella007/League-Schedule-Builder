@@ -1549,9 +1549,7 @@ export default function ScheduleTab({ slots: propSlots, teams: propTeams, divisi
 
 
               <div className="bg-red-900/20 border border-red-700 rounded-lg p-4 mb-4">
-                <h5 className="text-red-300 font-medium mb-3">
-                  🔍 Found {conflicts.length} Same-Day Conflict{conflicts.length > 1 ? 's' : ''}
-                </h5>
+
                 <div className="space-y-3">
                   {conflicts.map((conflict, index) => (
                     <div key={index} className="bg-red-800/30 rounded p-3">
