@@ -57,7 +57,8 @@ export default function ImportTab({ uploadedFile, setUploadedFile, slots, setSlo
     console.log('🔄 Loading data from Supabase...')
     if (!supabase) {
       console.log('❌ Supabase not available')
-      setError('Database connection not available')
+      // Don't set an error during initial load - just log it
+      console.warn('Supabase client not available during data load')
       return
     }
     
