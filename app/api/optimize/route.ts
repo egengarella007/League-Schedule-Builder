@@ -75,7 +75,7 @@ async function callPythonScheduler(data: any): Promise<any> {
   try {
     // Get the Cloud Run URL from environment variable
     // You'll need to set this in your Vercel environment variables
-    const schedulerUrl = process.env.SCHEDULER_URL || 'https://league-schedule-builder-504b5990bc4028ea63b2a4ca73b8784ee68fad9a-ew.a.run.app'
+    const schedulerUrl = process.env.SCHEDULER_URL || 'https://league-schedule-builder-1068724512018.europe-west1.run.app'
     
     console.log('🔧 Calling Python scheduler at:', schedulerUrl)
     
