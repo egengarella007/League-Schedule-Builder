@@ -369,29 +369,23 @@ export default function ScheduleTab({ slots: propSlots, teams: propTeams, divisi
         console.log(`  ${i+1}. Div: "${game.Division}" - ${game.HomeTeam} vs ${game.AwayTeam}`)
       })
       
-      // Group games into blocks of 10 (in original order)
-      const blockSize = 10
-      const blocks = []
-      for (let i = 0; i < currentSchedule.length; i += blockSize) {
-        const block = currentSchedule.slice(i, i + blockSize)
-        if (block.length === blockSize) { // Only send complete blocks
-          blocks.push(block)
-        }
-      }
+      // Calculate optimal block size based on team count
+      // For 22 teams: 22 ÷ 2 = 11 games per week
+      const uniqueTeams = new Set()
+      currentSchedule.forEach(game => {
+        if (game.HomeTeam) uniqueTeams.add(game.HomeTeam)
+        if (game.AwayTeam) uniqueTeams.add(game.AwayTeam)
+      })
+      const teamCount = uniqueTeams.size
+      const optimalBlockSize = Math.max(4, Math.min(20, Math.floor(teamCount / 2)))
       
       console.log('🔧 Total games:', currentSchedule.length)
-      console.log('🔧 Block size:', blockSize)
-      console.log('🔧 Found complete blocks:', blocks.length)
+      console.log('🔧 Team count:', teamCount)
+      console.log('🔧 Optimal block size:', optimalBlockSize)
+      console.log('🔧 Games per week (matchups):', optimalBlockSize)
       
-      if (blocks.length === 0) {
-        setError(`Schedule must have complete blocks of ${blockSize} games for optimization. Found ${currentSchedule.length} total games.`)
-        setIsOptimizing(false)
-        return
-      }
-      
-            // Check if the first block has the right division mix
-      const firstBlock = blocks[0]
-      const divCounts = firstBlock.reduce((acc, game) => {
+            // Check division distribution in the schedule
+      const divCounts = currentSchedule.reduce((acc, game) => {
         const div = game.Division?.toLowerCase().trim()
         if (div === 'Tin Super' || div?.includes('12')) {
           acc['Tin Super'] = (acc['Tin Super'] || 0) + 1
@@ -514,10 +508,27 @@ export default function ScheduleTab({ slots: propSlots, teams: propTeams, divisi
         return
       }
       
+      // Calculate dynamic block recipe based on division sizes
+      const blockRecipe = {}
+      Object.keys(divCounts).forEach(div => {
+        if (divCounts[div] > 0) {
+          // For 22 teams: 11 games per week, distribute proportionally
+          const gamesPerBlock = Math.max(1, Math.floor((divCounts[div] / currentSchedule.length) * optimalBlockSize))
+          blockRecipe[div] = gamesPerBlock
+        }
+      })
+      
+      console.log('🔧 Dynamic optimization parameters:', {
+        optimalBlockSize,
+        blockRecipe,
+        divCounts,
+        totalGames: currentSchedule.length
+      })
+      
       const requestBody = {
         schedule: scheduleData,
-        blockSize: 10,
-        blockRecipe: { 'Tin Super': 6, 'Tin South': 4 },
+        blockSize: optimalBlockSize,  // Dynamic: 11 for 22 teams
+        blockRecipe: blockRecipe,     // Dynamic: calculated based on division distribution
         divisionSizes: { 'Tin Super': 12, 'Tin South': 8 }, // Number of teams in each division
         earlyStart: "10:01 PM",  // ✅ Use START time for EML classification
         midStart: "10:31 PM",    // ✅ Use START time for EML classification
