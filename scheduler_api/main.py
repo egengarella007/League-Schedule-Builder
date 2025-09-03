@@ -16,6 +16,14 @@ from days_since_optimizer import optimize_days_since_last_played
 
 app = FastAPI(title="League Scheduler API", version="1.0.0")
 
+@app.get("/")
+async def root():
+    return {"message": "League Scheduler API is running", "version": "1.0.0"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "message": "Scheduler service is running"}
+
 class ScheduleRequest(BaseModel):
     leagueId: str
     runId: Optional[str] = None
@@ -48,10 +56,6 @@ class OptimizationRequest(BaseModel):
 class DaysOptimizationRequest(BaseModel):
     schedule_data: Dict[str, Any]
     late_threshold: Optional[str] = "22:31"
-
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy", "message": "Scheduler service is running"}
 
 @app.post("/schedule")
 async def generate_schedule(request: ScheduleRequest):

@@ -1,1 +1,1 @@
-web: gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind :8080
+web: gunicorn main:app --bind :8080 --workers 1 --worker-class uvicorn.workers.UvicornWorker --timeout 120 --keep-alive 5
