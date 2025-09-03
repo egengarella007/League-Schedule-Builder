@@ -1484,6 +1484,7 @@ export default function ScheduleTab({ slots: propSlots, teams: propTeams, divisi
           </div>
           
           {/* Schedule Table */}
+          {/* Schedule Table with Bucket Highlighting */}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -1495,22 +1496,69 @@ export default function ScheduleTab({ slots: propSlots, teams: propTeams, divisi
                   <th className="text-left py-2 px-3">Division</th>
                   <th className="text-left py-2 px-3">Home Team</th>
                   <th className="text-left py-2 px-3">Away Team</th>
+                  <th className="text-left py-2 px-3 text-gray-400">Bucket</th>
                 </tr>
               </thead>
               <tbody>
-                {currentSchedule.map((game, index) => (
-                  <tr key={index} className="border-b border-gray-700 hover:bg-gray-700">
-                    <td className="py-2 px-3 text-gray-400 font-mono">{index + 1}</td>
-                    <td className="py-2 px-3">{game.Date}</td>
-                    <td className="py-2 px-3">{game.Start}</td>
-                    <td className="py-2 px-3">{game.Rink}</td>
-                    <td className="py-2 px-3">{game.Division}</td>
-                    <td className="py-2 px-3 font-medium">{game.HomeTeam}</td>
-                    <td className="py-2 px-3 font-medium">{game.AwayTeam}</td>
-                  </tr>
-                ))}
+                {currentSchedule.map((game, index) => {
+                  const bucketNumber = Math.floor(index / 10) + 1
+                  const isEvenBucket = bucketNumber % 2 === 0
+                  const isBucketStart = index % 10 === 0
+                  const isBucketEnd = index % 10 === 9 || index === currentSchedule.length - 1
+                  
+                  return (
+                    <tr 
+                      key={index} 
+                      className={`border-b border-gray-700 hover:bg-gray-700 transition-colors ${
+                        isEvenBucket ? 'bg-gray-800/50' : 'bg-gray-900/50'
+                      } ${isBucketStart ? 'border-t-2 border-blue-500' : ''} ${isBucketEnd ? 'border-b-2 border-green-500' : ''}`}
+                    >
+                      <td className="py-2 px-3 text-gray-400 font-mono">{index + 1}</td>
+                      <td className="py-2 px-3">{game.Date}</td>
+                      <td className="py-2 px-3">{game.Start}</td>
+                      <td className="py-2 px-3">{game.Rink}</td>
+                      <td className="py-2 px-3">{game.Division}</td>
+                      <td className="py-2 px-3 font-medium">{game.HomeTeam}</td>
+                      <td className="py-2 px-3 font-medium">{game.AwayTeam}</td>
+                      <td className="py-2 px-3 text-gray-400 font-mono">
+                        {bucketNumber}
+                        {isBucketStart && (
+                          <span className="ml-2 text-blue-400 text-xs">Start</span>
+                        )}
+                        {isBucketEnd && (
+                          <span className="ml-2 text-green-400 text-xs">Complete</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
+          </div>
+          
+          {/* Bucket Summary */}
+          <div className="mt-4 p-4 bg-gray-700/30 rounded-lg">
+            <h4 className="text-sm font-medium text-gray-300 mb-2">Bucket Structure</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+              {Array.from({ length: Math.ceil(currentSchedule.length / 10) }, (_, i) => {
+                const bucketNumber = i + 1
+                const startIndex = i * 10
+                const endIndex = Math.min((i + 1) * 10 - 1, currentSchedule.length - 1)
+                const gamesInBucket = endIndex - startIndex + 1
+                const isComplete = gamesInBucket === 10
+                
+                return (
+                  <div key={bucketNumber} className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded-full ${isComplete ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                    <span className="text-gray-400">Bucket {bucketNumber}:</span>
+                    <span className={`font-mono ${isComplete ? 'text-green-400' : 'text-yellow-400'}`}>
+                      {gamesInBucket}/10
+                    </span>
+                    {isComplete && <span className="text-green-400 text-xs">✓</span>}
+                  </div>
+                )
+              })}
+            </div>
           </div>
 
           {/* Export Buttons */}
