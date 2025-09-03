@@ -609,7 +609,26 @@ def optimize_from_dict(schedule: List[Dict],
         if not params:
             params = {}
         
-        block_size = params.get('blockSize', 10)  # Get from blockSize parameter
+        # Calculate optimal block size based on team count if not provided
+        block_size = params.get('blockSize', None)
+        if block_size is None:
+            # Count unique teams in the schedule
+            all_teams = set()
+            for game in schedule:
+                home_team = game.get('home', '') or game.get('HomeTeam', '')
+                away_team = game.get('away', '') or game.get('AwayTeam', '')
+                if home_team:
+                    all_teams.add(home_team)
+                if away_team:
+                    all_teams.add(away_team)
+            
+            # Calculate optimal block size (teams ÷ 2, clamped between 4 and 20)
+            team_count = len(all_teams)
+            optimal_block_size = max(4, min(20, team_count // 2))
+            block_size = optimal_block_size
+            print(f"  Calculated optimal block size: {optimal_block_size} (from {team_count} teams)", file=sys.stderr)
+        else:
+            print(f"  Using provided block size: {block_size}", file=sys.stderr)
         late_threshold_str = params.get('midStart', '22:31')  # Get from midStart parameter
         target_week = params.get('target_week', None)  # Which week to optimize (None = auto-detect next)
         optimize_days_since = params.get('optimize_days_since', True)  # Whether to optimize days since last played
@@ -661,6 +680,22 @@ def optimize_from_dict(schedule: List[Dict],
         divisions = {div: list(teams) for div, teams in divisions.items()}
         
         print(f"  Created divisions from schedule: {divisions}", file=sys.stderr)
+        
+        # Calculate optimal blockRecipe if not provided
+        block_recipe = params.get('blockRecipe', None)
+        if block_recipe is None:
+            # Calculate optimal distribution based on division sizes
+            block_recipe = {}
+            for div_name, teams in divisions.items():
+                if div_name != 'unknown' and len(teams) > 0:
+                    # Calculate how many games this division should contribute per block
+                    # For even distribution, each division contributes roughly teams/2 games per block
+                    games_per_block = max(1, len(teams) // 2)
+                    block_recipe[div_name] = games_per_block
+            
+            print(f"  Calculated optimal blockRecipe: {block_recipe}", file=sys.stderr)
+        else:
+            print(f"  Using provided blockRecipe: {block_recipe}", file=sys.stderr)
         
         # Group schedule into buckets (weeks)
         buckets = []

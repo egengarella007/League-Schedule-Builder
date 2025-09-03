@@ -26,7 +26,7 @@ class ScheduleRequest(BaseModel):
 class OptimizationRequest(BaseModel):
     schedule: List[Dict[str, Any]]
     blockSize: Optional[int] = None  # Will be calculated dynamically based on team count
-    blockRecipe: Optional[Dict[str, int]] = {"a": 6, "b": 4}
+    blockRecipe: Optional[Dict[str, int]] = None  # Will be calculated dynamically based on team count
     earlyStart: Optional[str] = "10:01 PM"
     midStart: Optional[str] = "10:31 PM"
     target_week: Optional[int] = None

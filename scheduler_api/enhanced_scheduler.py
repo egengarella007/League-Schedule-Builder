@@ -190,14 +190,42 @@ class EnhancedScheduler:
             counts = Counter(self.team_div.values())
             if "unknown" in counts: 
                 del counts["unknown"]
-            # require that sum(n_i//2) == block_size; otherwise we can't do "everyone once per block"
-            derived = {d: counts[d] // 2 for d in counts}
-            if sum(derived.values()) == self.block_size:
-                self.block_recipe = derived
-                print(f"🔧 Derived blockRecipe from team counts: {self.block_recipe}")
+            # Calculate optimal distribution: each division contributes roughly teams/2 games per block
+            derived = {}
+            for d, team_count in counts.items():
+                if team_count > 0:
+                    # For even distribution, each division contributes roughly teams/2 games per block
+                    games_per_block = max(1, team_count // 2)
+                    derived[d] = games_per_block
+            
+            # If the sum doesn't match block_size exactly, adjust proportionally
+            total_derived = sum(derived.values())
+            if total_derived > 0:
+                if total_derived != self.block_size:
+                    # Scale proportionally to match block_size
+                    scale_factor = self.block_size / total_derived
+                    scaled = {}
+                    for d, count in derived.items():
+                        scaled[d] = max(1, round(count * scale_factor))
+                    
+                    # Ensure the sum equals block_size
+                    while sum(scaled.values()) != self.block_size:
+                        if sum(scaled.values()) < self.block_size:
+                            # Add one to the division with most teams
+                            largest_div = max(scaled.keys(), key=lambda x: counts[x])
+                            scaled[largest_div] += 1
+                        else:
+                            # Remove one from the division with most teams
+                            largest_div = max(scaled.keys(), key=lambda x: counts[x])
+                            scaled[largest_div] = max(1, scaled[largest_div] - 1)
+                    
+                    self.block_recipe = scaled
+                    print(f"🔧 Derived and scaled blockRecipe: {self.block_recipe} (sum={sum(self.block_recipe.values())})")
+                else:
+                    self.block_recipe = derived
+                    print(f"🔧 Derived blockRecipe from team counts: {self.block_recipe}")
             else:
-                print(f"⚠️ Cannot derive blockRecipe that sums to blockSize={self.block_size}. "
-                      f"Got {derived} (sum={sum(derived.values())}). Strict filler will be skipped.")
+                print(f"⚠️ No valid divisions found for blockRecipe")
         else:
             print(f"🔧 Using provided blockRecipe: {self.block_recipe}")
             print(f"🔧 Team divisions found: {dict(counts) if 'counts' in locals() else 'Not counted yet'}")
