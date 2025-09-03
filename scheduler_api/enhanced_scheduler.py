@@ -274,6 +274,13 @@ class EnhancedScheduler:
             for s in processed_slots:
                 seg = s["Segment"]
                 played_in_segment[seg] = set()
+        
+        # Calculate matchups per week (teams ÷ 2)
+        # For 22 teams: 22 ÷ 2 = 11 matchups per week
+        # Each matchup involves 2 teams, so 11 matchups = 22 team appearances
+        games_per_week = len([t["name"] for t in teams]) // 2
+        current_week = 1
+        games_in_current_week = 0
 
         # heuristic fill for leftover slots (partials / "All")
         remaining_slots = [s for s in processed_slots if s["SlotID"] not in used_slot_ids]
@@ -409,6 +416,12 @@ class EnhancedScheduler:
             a, b, _ = picked
             home, away = self.choose_home_away(a, b, home_count)
 
+            # Calculate week number based on chronological order
+            # For 22 teams: 11 matchups per week (22 teams ÷ 2 = 11 matchups)
+            # Each week should have exactly 11 matchups
+            games_per_week = len([t["name"] for t in teams]) // 2  # 22 ÷ 2 = 11
+            week_number = (len(games_assigned) // games_per_week) + 1
+            
             games_assigned.append({
                 "Date": slot["Start"].strftime("%Y-%m-%d"),
                 "Start": slot["Start"].strftime("%I:%M %p"),
@@ -420,7 +433,8 @@ class EnhancedScheduler:
                 "EML": slot["Bucket"],
                 "Weekday": slot["Start"].strftime("%A"),
                 "Week": slot["Start"].isocalendar()[1],
-                "SlotID": slot["SlotID"]
+                "SlotID": slot["SlotID"],
+                "Bucket": week_number
             })
 
             # update state

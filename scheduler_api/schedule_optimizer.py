@@ -775,6 +775,7 @@ def optimize_from_dict(schedule: List[Dict],
                         )
                         
                         print(f"  Week {i+1}: Placement returned {len(week_swaps)} team assignments", file=sys.stderr)
+                        print(f"  Week {i+1}: This represents {len(week_swaps) // 2} matchup changes", file=sys.stderr)
                         total_swaps.extend(week_swaps)
                         
                         if 'error' in optimized_week:
@@ -839,6 +840,7 @@ def optimize_from_dict(schedule: List[Dict],
                         )
                         
                         print(f"  Week {i+1}: Placement returned {len(week_swaps)} team assignments", file=sys.stderr)
+                        print(f"  Week {i+1}: This represents {len(week_swaps) // 2} matchup changes", file=sys.stderr)
                         total_swaps.extend(week_swaps)
                         
                         if 'error' in optimized_week:
@@ -895,20 +897,27 @@ def optimize_from_dict(schedule: List[Dict],
             if target_week < len(buckets):
                 print(f"  🔒 Weeks {target_week+1}+: PRESERVED (unchanged)", file=sys.stderr)
         
+        # Calculate total changes (each matchup change = 2 team movements)
+        # For 22 teams: 11 matchups × 2 teams = 22 total changes
+        total_changes = len(total_swaps)
+        total_matchups_changed = total_changes // 2 if total_changes > 0 else 0
+        
         return {
             'success': True,
-            'message': f'Schedule optimized for Week {target_week if target_week else "2+"} with {len(total_swaps)} team assignments',
+            'message': f'Schedule optimized for Week {target_week if target_week else "2+"} with {total_changes} total changes ({total_matchups_changed} matchups modified)',
             'original_schedule': schedule,
             'schedule': optimized_schedule,
             'weeks_processed': len(buckets),
             'target_week': target_week,
             'late_game_threshold': mid_start_time.strftime('%H:%M'),
             'swaps': total_swaps,  # Team assignments made
-            'improvement': len(total_swaps),  # Number of team assignments
+            'improvement': total_changes,  # Total number of changes (should be 22 for 22 teams)
             'weeks_optimized': weeks_optimized,  # Array of weeks that have been optimized
             'all_weeks_complete': all_weeks_complete,  # True if all optimizable weeks are done
             'total_optimizable_weeks': total_optimizable_weeks,  # Total weeks that can be optimized
-            'days_optimization_enabled': optimize_days_since  # Whether days since last played optimization ran
+            'days_optimization_enabled': optimize_days_since,  # Whether days since last played optimization ran
+            'total_changes': total_changes,  # Total changes made
+            'matchups_modified': total_matchups_changed  # Number of matchups that were modified
         }
         
     except Exception as e:
