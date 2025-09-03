@@ -1501,7 +1501,10 @@ export default function ScheduleTab({ slots: propSlots, teams: propTeams, divisi
               </thead>
               <tbody>
                 {currentSchedule.map((game, index) => {
-                  const bucketNumber = Math.floor(index / 10) + 1
+                  // Calculate bucket size based on team count
+                  // Each team plays once per bucket, so bucket size = teams.length / 2
+                  const bucketSize = Math.max(1, Math.floor(teams.length / 2))
+                  const bucketNumber = Math.floor(index / bucketSize) + 1
                   const isEvenBucket = bucketNumber % 2 === 0
                   
                   return (
