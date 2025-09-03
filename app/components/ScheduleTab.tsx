@@ -1548,33 +1548,6 @@ export default function ScheduleTab({ slots: propSlots, teams: propTeams, divisi
 
 
 
-              <div className="bg-red-900/20 border border-red-700 rounded-lg p-4 mb-4">
-
-                <div className="space-y-3">
-                  {conflicts.map((conflict, index) => (
-                    <div key={index} className="bg-red-800/30 rounded p-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-red-200 font-medium">{conflict.team}</span>
-                        <span className="text-red-400">plays {conflict.games.length} times on</span>
-                        <span className="text-red-200 font-medium">{conflict.date}</span>
-                      </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-                        {conflict.games.map((game, gameIndex) => (
-                          <div key={gameIndex} className="bg-red-700/30 rounded p-2">
-                            <div className="text-red-300 font-medium">Game #{game.gameNumber}</div>
-                            <div className="text-red-400">{game.home} vs {game.away}</div>
-                            <div className="text-red-400">{game.time} - {game.rink}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-
-
 
         </div>
       )}
