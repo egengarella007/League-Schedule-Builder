@@ -705,6 +705,18 @@ def optimize_from_dict(schedule: List[Dict],
         
         print(f"  Created {len(buckets)} buckets of size {block_size}", file=sys.stderr)
         
+        # Debug: show bucket sizes
+        print(f"  Bucket details:", file=sys.stderr)
+        for i, bucket in enumerate(buckets):
+            print(f"    Bucket {i+1}: {len(bucket)} games", file=sys.stderr)
+            if len(bucket) < block_size:
+                print(f"      ⚠️ Incomplete bucket (expected {block_size}, got {len(bucket)})", file=sys.stderr)
+        
+        # Check if we have the expected number of complete buckets
+        complete_buckets = [b for b in buckets if len(b) == block_size]
+        incomplete_buckets = [b for b in buckets if len(b) < block_size]
+        print(f"  Complete buckets: {len(complete_buckets)}, Incomplete buckets: {len(incomplete_buckets)}", file=sys.stderr)
+        
         # Process buckets based on target_week parameter
         optimized_schedule = []
         completed_buckets = []

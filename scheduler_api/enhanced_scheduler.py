@@ -467,9 +467,20 @@ class EnhancedScheduler:
         
         # Final game count summary
         print(f"🔧 Final game count summary:")
+        total_games_scheduled = len(games_assigned)
+        expected_games = len([t["name"] for t in teams]) * self.games_per_team // 2
+        print(f"🔧 Total games scheduled: {total_games_scheduled}")
+        print(f"🔧 Expected games: {expected_games}")
+        print(f"🔧 Games difference: {total_games_scheduled - expected_games}")
+        
         for team, count in sorted(team_game_count.items()):
             status = "✅" if count == self.games_per_team else "❌"
             print(f"   {team}: {count}/{self.games_per_team} games {status}")
+        
+        # Check if we're missing games
+        if total_games_scheduled < expected_games:
+            print(f"⚠️ WARNING: Scheduled {total_games_scheduled} games but expected {expected_games}")
+            print(f"   Missing {expected_games - total_games_scheduled} games")
         
         return games_assigned
 
