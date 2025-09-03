@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
     try {
       const schedulerUrl = process.env.SCHEDULER_URL || 'http://localhost:8000'
       console.log('📡 Attempting to call Python scheduler at:', schedulerUrl)
+      console.log('🔍 Environment variable SCHEDULER_URL:', process.env.SCHEDULER_URL)
       
       const response = await fetch(`${schedulerUrl}/schedule`, {
         method: 'POST',
@@ -76,17 +77,24 @@ export async function POST(request: NextRequest) {
       })
 
       console.log('📡 Python scheduler response status:', response.status)
+      console.log('📡 Python scheduler response headers:', Object.fromEntries(response.headers.entries()))
 
       if (!response.ok) {
         const errorText = await response.text()
         console.error('❌ Python scheduler error:', errorText)
-        throw new Error(`Scheduler service error: ${response.status}`)
+        throw new Error(`Scheduler service error: ${response.status} - ${errorText}`)
       }
 
       result = await response.json()
       console.log('✅ Python scheduler result:', result.success)
+      console.log('✅ Python scheduler schedule length:', result.schedule?.length || 0)
     } catch (error) {
       console.error('❌ Python scheduler connection failed:', error)
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      })
       
       // Return mock data for now since Python service isn't available
       console.log('⚠️ Returning mock schedule data')
