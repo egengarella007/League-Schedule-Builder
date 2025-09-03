@@ -269,6 +269,12 @@ class EnhancedScheduler:
             print(f"   ⚠️ Warning: Not enough slots to schedule all games!")
         else:
             print(f"   ✅ Sufficient slots available")
+        
+        # Show pair quota details
+        print(f"🔧 Pair quota details:")
+        for (team1, team2), count in pair_remaining.items():
+            if count > 0:
+                print(f"   {team1} vs {team2}: {count} games needed")
 
         def same_div(a: str, b: str) -> bool:
             da = self.team_div.get(a, "unknown"); db = self.team_div.get(b, "unknown")
@@ -407,8 +413,12 @@ class EnhancedScheduler:
                 pair_remaining[key] -= 1
             team_game_count[a] += 1; team_game_count[b] += 1
 
+            # Don't stop early - continue until we've processed all slots or can't find any more valid matchups
+            # This ensures we use all available slots and try to get all teams to their target
             if all(cnt >= self.games_per_team for cnt in team_game_count.values()):
-                break
+                # Even if all teams have reached target, continue to see if we can distribute games more evenly
+                # or if there are still valid matchups that could improve the schedule
+                pass
 
         # Final repair/force pass to fill any leftover slots
         unused = [s for s in processed_slots if s["SlotID"] not in {g["SlotID"] for g in games_assigned}]
@@ -418,11 +428,20 @@ class EnhancedScheduler:
             games_assigned = self._force_fill_remaining(processed_slots, games_assigned, unused,
                                                       team_game_count, home_count, played_in_segment)
         
+        # Aggressive final pass to ensure all teams reach their target
+        self._aggressive_final_fill(games_assigned, team_game_count, processed_slots)
+        
         # Final strict validation on full blocks
         self._validate_full_blocks(processed_slots, games_assigned)
         
         # Validate that all teams have exactly the target number of games
         self._validate_game_counts(games_assigned, team_game_count)
+        
+        # Final game count summary
+        print(f"🔧 Final game count summary:")
+        for team, count in sorted(team_game_count.items()):
+            status = "✅" if count == self.games_per_team else "❌"
+            print(f"   {team}: {count}/{self.games_per_team} games {status}")
         
         return games_assigned
 
@@ -836,6 +855,58 @@ class EnhancedScheduler:
                             return
         
         print("   Could not find suitable swaps to fix imbalances")
+    
+    def _aggressive_final_fill(self, games_assigned: List[Dict[str, Any]], team_game_count: Dict[str, int], processed_slots: List[Dict[str, Any]]):
+        """Aggressively try to get all teams to their target game count by redistributing games."""
+        print("🔧 Starting aggressive final fill to reach target game counts...")
+        
+        # Find teams that haven't reached their target
+        under_teams = [team for team, count in team_game_count.items() if count < self.games_per_team]
+        over_teams = [team for team, count in team_game_count.items() if count > self.games_per_team]
+        
+        if not under_teams:
+            print("   ✅ All teams have reached their target!")
+            return
+        
+        print(f"   Teams under target: {under_teams}")
+        print(f"   Teams over target: {over_teams}")
+        
+        # Try to redistribute games from over teams to under teams
+        for under_team in under_teams:
+            needed = self.games_per_team - team_game_count[under_team]
+            print(f"   {under_team} needs {needed} more games")
+            
+            for _ in range(needed):
+                # Find a game with an over team that we can swap
+                for i, game in enumerate(games_assigned):
+                    if game["HomeTeam"] in over_teams and game["AwayTeam"] != under_team:
+                        # Try to swap home team
+                        if self._can_swap_team(game, game["HomeTeam"], under_team, games_assigned):
+                            old_team = game["HomeTeam"]
+                            games_assigned[i]["HomeTeam"] = under_team
+                            team_game_count[old_team] -= 1
+                            team_game_count[under_team] += 1
+                            print(f"      Swapped {old_team} → {under_team} in home position")
+                            break
+                    elif game["AwayTeam"] in over_teams and game["HomeTeam"] != under_team:
+                        # Try to swap away team
+                        if self._can_swap_team(game, game["AwayTeam"], under_team, games_assigned):
+                            old_team = game["AwayTeam"]
+                            games_assigned[i]["AwayTeam"] = under_team
+                            team_game_count[old_team] -= 1
+                            team_game_count[under_team] += 1
+                            print(f"      Swapped {old_team} → {under_team} in away position")
+                            break
+                else:
+                    print(f"      Could not find suitable swap for {under_team}")
+                    break
+        
+        # Final check
+        final_under = [team for team, count in team_game_count.items() if count < self.games_per_team]
+        if final_under:
+            print(f"   ⚠️ Still under target: {final_under}")
+        else:
+            print("   ✅ All teams now have their target games!")
     
     def _can_swap_team(self, game: Dict[str, Any], old_team: str, new_team: str, all_games: List[Dict[str, Any]]) -> bool:
         """Check if swapping a team in a game would create conflicts."""
