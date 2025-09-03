@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { Upload, FileText, CheckCircle, XCircle, ChevronDown, ChevronUp } from 'lucide-react'
 import * as XLSX from 'xlsx'
-import { supabase, DEFAULT_LEAGUE_ID } from '../../lib/supabase'
+import { getSupabaseClient, DEFAULT_LEAGUE_ID } from '../../lib/supabase'
 
 interface ImportTabProps {
   uploadedFile: File | null
@@ -55,7 +55,7 @@ export default function ImportTab({ uploadedFile, setUploadedFile, slots, setSlo
 
   const loadFromSupabase = async () => {
     console.log('🔄 Loading data from Supabase...')
-    if (!supabase) {
+    if (!getSupabaseClient()) {
       console.log('❌ Supabase not available')
       // Don't set an error during initial load - just log it
       console.warn('Supabase client not available during data load')
@@ -64,7 +64,7 @@ export default function ImportTab({ uploadedFile, setUploadedFile, slots, setSlo
     
     try {
       // Load slots directly (no import records in new schema)
-      const { data: slotsData, error: slotsError } = await supabase
+      const { data: slotsData, error: slotsError } = await getSupabaseClient()
         .from('slots')
         .select('*')
         .eq('league_id', DEFAULT_LEAGUE_ID)
@@ -244,7 +244,7 @@ export default function ImportTab({ uploadedFile, setUploadedFile, slots, setSlo
   }
 
   const saveToSupabase = async (fileName: string, data: any[], headers: string[]) => {
-    if (!supabase) {
+    if (!getSupabaseClient()) {
       console.log('❌ Supabase not available')
       setError('Database connection not available')
       return
@@ -254,7 +254,7 @@ export default function ImportTab({ uploadedFile, setUploadedFile, slots, setSlo
       console.log('🗑️ Clearing ALL existing data from Supabase...')
       
       // Delete ALL existing data (no conditions)
-      const { error: deleteSlotsError } = await supabase
+      const { error: deleteSlotsError } = await getSupabaseClient()
         .from('slots')
         .delete()
         .eq('league_id', DEFAULT_LEAGUE_ID) // Delete slots for this league
@@ -372,7 +372,7 @@ export default function ImportTab({ uploadedFile, setUploadedFile, slots, setSlo
 
       console.log('📊 Inserting', slotsToInsert.length, 'valid slots...')
       
-      const { error: slotsError } = await supabase
+      const { error: slotsError } = await getSupabaseClient()
         .from('slots')
         .insert(slotsToInsert)
 
