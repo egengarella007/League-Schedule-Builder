@@ -1,0 +1,40 @@
+# Prisma
+prisma/dev.db
+prisma/dev.db-journal
+
+# Python files (not needed for Next.js deployment)
+scheduler/
+scheduler_api/
+*.py
+pyproject.toml
+requirements.txt
+
+# SQL files
+*.sql
+
+# Test files
+tests/
+test_*.py
+
+# Documentation
+*.md
+!README.md
+
+# Environment files
+.env*
+!env-template.txt
+
+# Database files
+*.db
+*.db-journal
+
+# Logs
+*.log
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
