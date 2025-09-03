@@ -9,8 +9,9 @@ import xlsxwriter
 from datetime import datetime, timedelta
 import random
 
-# Import the enhanced scheduler
+# Import the enhanced scheduler and optimization functions
 from enhanced_scheduler import generate_enhanced_schedule
+from schedule_optimizer import optimize_from_dict
 
 app = FastAPI(title="League Scheduler API", version="1.0.0")
 
@@ -86,7 +87,7 @@ async def generate_schedule(request: ScheduleRequest):
 
 @app.post("/optimize")
 async def optimize_schedule(request: OptimizationRequest):
-    """Optimize an existing schedule using the optimization algorithms"""
+    """Optimize an existing schedule using the real optimization algorithms"""
     print(f"🔧 Received optimization request:")
     print(f"   Schedule games: {len(request.schedule)}")
     print(f"   Target week: {request.target_week}")
@@ -95,37 +96,22 @@ async def optimize_schedule(request: OptimizationRequest):
     print(f"   Mid start: {request.midStart}")
     
     try:
-        # For now, return a simple optimization result
-        # You can integrate your actual optimization logic here later
-        optimized_schedule = request.schedule.copy()
-        
-        # Simulate some optimization (swap a few games around)
-        if len(optimized_schedule) > 1:
-            # Simple swap of first two games
-            temp = optimized_schedule[0]
-            optimized_schedule[0] = optimized_schedule[1]
-            optimized_schedule[1] = temp
-            
-            swaps = [{
-                "game1": optimized_schedule[0]["id"],
-                "game2": optimized_schedule[1]["id"],
-                "type": "swap",
-                "improvement": 0.1
-            }]
-        else:
-            swaps = []
-        
-        result = {
-            "success": True,
-            "message": "Schedule optimized successfully",
-            "schedule": optimized_schedule,
-            "swaps": swaps,
-            "score_before": 0.8,
-            "score_after": 0.9,
-            "improvement": 0.1
+        # Convert the request to the format expected by optimize_from_dict
+        optimization_params = {
+            'blockSize': request.blockSize,
+            'midStart': request.midStart,
+            'target_week': request.target_week,
+            'optimize_days_since': request.optimize_days_since,
+            'force_full_validation': request.force_full_validation
         }
         
-        print(f"✅ Optimization successful: {len(swaps)} swaps made")
+        # Call the real optimization function
+        print(f"🔧 Calling optimize_from_dict with {len(request.schedule)} games")
+        result = optimize_from_dict(request.schedule, None, optimization_params)
+        
+        print(f"✅ Optimization successful: {result}")
+        
+        # Return the result in the format expected by your Next.js app
         return JSONResponse(content=result)
         
     except Exception as e:
