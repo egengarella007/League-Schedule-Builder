@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { spawn } from 'child_process'
-import path from 'path'
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,9 +21,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid schedule data' }, { status: 400 })
     }
 
-    // Prepare data for Python script
+    // Prepare data for Cloud Run optimization
     const optimizationData = {
-      schedule: schedule.map((game: any) => ({
+      schedule: schedule.map(game => ({
         id: game.id,
         start: game.start,
         end: game.end,
@@ -54,8 +52,8 @@ export async function POST(request: NextRequest) {
       force_full_validation: force_full_validation !== false  // Force full validation mode
     }
 
-    // Call Python optimization script
-    const result = await runPythonOptimization(optimizationData)
+    // Call Cloud Run optimization service
+    const result = await callCloudRunOptimization(optimizationData)
     
     console.log('✅ Optimization completed:', {
       swapsCount: result.swaps?.length || 0,
@@ -73,87 +71,36 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function runPythonOptimization(data: any): Promise<any> {
-  return new Promise((resolve, reject) => {
-    // Create a simple test script to run the optimization
-    const testScript = `
-import sys
-import json
-import os
-
-# We're already in the scheduler_api directory, so just add current directory to path
-sys.path.insert(0, os.getcwd())
-
-try:
-    from schedule_optimizer import optimize_from_dict
-    
-    # Parse input data
-    data = json.loads('''${JSON.stringify(data)}''')
-    
-    # Debug: Print received parameters
-    print("🔧 Python received params:", file=sys.stderr)
-    print("  earlyStart:", data.get('earlyStart', 'NOT_FOUND'), file=sys.stderr)
-    print("  midStart:", data.get('midStart', 'NOT_FOUND'), file=sys.stderr)
-    print("  blockSize:", data.get('blockSize', 'NOT_FOUND'), file=sys.stderr)
-    print("  target_week:", data.get('target_week', 'NOT_FOUND'), file=sys.stderr)
-    
-    # Run optimization
-    result = optimize_from_dict(data['schedule'], None, data)
-    
-    # Print result as JSON
-    print(json.dumps(result))
-    
-except Exception as e:
-    import traceback
-    print(json.dumps({"error": str(e), "traceback": traceback.format_exc()}))
-    sys.exit(1)
-`
-
-    const pythonProcess = spawn('python3', ['-c', testScript], {
-      cwd: path.join(process.cwd(), 'scheduler_api'),
-      env: { ...process.env, PYTHONPATH: path.join(process.cwd(), 'scheduler_api') }
-    })
-
-    let stdout = ''
-    let stderr = ''
-
-    pythonProcess.stdout.on('data', (data) => {
-      stdout += data.toString()
-    })
-
-    pythonProcess.stderr.on('data', (data) => {
-      stderr += data.toString()
-      console.log('🔧 Python stderr:', data.toString())
-    })
-
-    pythonProcess.on('close', (code) => {
-      console.log('🔧 Python process closed with code:', code)
-      console.log('🔧 Python stdout length:', stdout.length)
-      console.log('🔧 Python stdout (first 500 chars):', stdout.substring(0, 500))
-      console.log('🔧 Python stderr length:', stderr.length)
-      console.log('🔧 Python stderr (first 500 chars):', stderr.substring(0, 500))
+async function callCloudRunOptimization(data: any): Promise<any> {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // Get Cloud Run URL from environment or use a default
+      const cloudRunUrl = process.env.SCHEDULER_URL || 'https://league-schedule-builder-[your-hash]-ew.a.run.app'
       
-      if (code === 0) {
-        try {
-          const result = JSON.parse(stdout)
-          if (result.error) {
-            reject(new Error(result.error))
-          } else {
-            resolve(result)
-          }
-        } catch (parseError) {
-          console.log('🔧 Parse error:', parseError)
-          reject(new Error(`Failed to parse Python output: ${parseError.message}. Raw output: ${stdout.substring(0, 200)}`))
-        }
-      } else {
-        console.log('🔧 Python failed with code:', code)
-        console.log('🔧 Full stderr:', stderr)
-        reject(new Error(`Python script failed with code ${code}. Stderr: ${stderr || 'No error output'}`))
-      }
-    })
+      console.log('🔧 Calling Cloud Run optimization service at:', cloudRunUrl)
+      
+      const response = await fetch(`${cloudRunUrl}/optimize`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      })
 
-    pythonProcess.on('error', (error) => {
-      reject(new Error(`Failed to start Python process: ${error.message}`))
-    })
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('❌ Cloud Run optimization error:', errorText)
+        reject(new Error(`Cloud Run service error: ${response.status} - ${errorText}`))
+        return
+      }
+
+      const result = await response.json()
+      console.log('✅ Cloud Run optimization successful')
+      resolve(result)
+      
+    } catch (error) {
+      console.error('❌ Cloud Run optimization connection failed:', error)
+      reject(new Error(`Failed to connect to Cloud Run service: ${error.message}`))
+    }
   })
 }

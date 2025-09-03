@@ -9,11 +9,20 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzd
 # Supabase Service Role Key (for server-side operations)
 SUPABASE_SERVICE_ROLE_KEY=YOUR_ACTUAL_SERVICE_ROLE_KEY_HERE
 
+# Python Scheduler Service URL (Cloud Run)
+SCHEDULER_URL=https://league-schedule-builder-[your-hash]-ew.a.run.app
+
 # To get your service role key:
 # 1. Go to Supabase Dashboard
 # 2. Settings → API
 # 3. Copy the "service_role" key (starts with eyJ...)
 # 4. Replace YOUR_ACTUAL_SERVICE_ROLE_KEY_HERE with the copied key
+
+# To get your Cloud Run URL:
+# 1. Go to Google Cloud Console → Cloud Run
+# 2. Click on your league-schedule-builder service
+# 3. Copy the URL from the service details
+# 4. Replace [your-hash] with the actual URL
 
 # Note: NEXT_PUBLIC_ variables are exposed to the browser
 # Non-NEXT_PUBLIC_ variables are only available server-side
