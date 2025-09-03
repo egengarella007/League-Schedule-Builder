@@ -5,8 +5,13 @@ let supabase: any = null
 // Default league ID for development
 export const DEFAULT_LEAGUE_ID = '00000000-0000-0000-0000-000000000001'
 
-// Only create the client on the client side
-if (typeof window !== 'undefined') {
+// Helper function to check if we're in a build environment
+const isBuildTime = () => {
+  return process.env.NODE_ENV === 'production' && !process.env.VERCEL_URL
+}
+
+// Only create the client on the client side and not during build
+if (typeof window !== 'undefined' && !isBuildTime()) {
   try {
     // Use environment variables for production, fallback to hardcoded for development
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zcoupiuradompbrsebdp.supabase.co'

@@ -7,16 +7,18 @@ import { SchedulerParamsData } from '@/lib/types'
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zcoupiuradompbrsebdp.supabase.co'
 
-if (!serviceRoleKey) {
-  throw new Error('SUPABASE_SERVICE_ROLE_KEY is not configured')
+// Only create the client if we have the required environment variables
+let supabase: any = null
+
+if (serviceRoleKey) {
+  supabase = createClient(supabaseUrl, serviceRoleKey)
 }
 
-const supabase = createClient(
-  supabaseUrl,
-  serviceRoleKey
-)
-
 export async function saveParamsAction(params: SchedulerParamsData) {
+  if (!supabase) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY is not configured')
+  }
+
   try {
     console.log('🔧 Attempting to save parameters with service role...')
     console.log('🔧 League ID:', DEFAULT_LEAGUE_ID)
@@ -46,6 +48,11 @@ export async function saveParamsAction(params: SchedulerParamsData) {
 }
 
 export async function getLatestParamsAction() {
+  if (!supabase) {
+    console.warn('SUPABASE_SERVICE_ROLE_KEY not configured, returning null')
+    return null
+  }
+
   try {
     const { data, error } = await supabase
       .from('scheduler_params')

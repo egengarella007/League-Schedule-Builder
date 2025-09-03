@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     
     if (!params) {
       return NextResponse.json(
-        { success: false, error: 'No parameters found' },
+        { success: false, error: 'No parameters found or service not configured' },
         { status: 404 }
       )
     }
