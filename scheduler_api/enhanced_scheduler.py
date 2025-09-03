@@ -3,7 +3,7 @@
 Enhanced League Scheduler (rewritten)
 
 Key guarantees fixed:
-- Hard "once-per-10-slot block" rule: in every full block of size `blockSize` that
+- Hard "once-per-block" rule: in every full block of size `blockSize` that
   matches `blockRecipe` (e.g., {"div 12": 6, "div 8": 4}), each team in those
   divisions appears exactly once in that block — no zeros, no doubles.
 - The strict filler uses precomputed round-robin rounds per division and maps one
@@ -17,7 +17,7 @@ Usage:
   {
     "timezone": "America/Los_Angeles",
     "gamesPerTeam": 12,
-    "blockSize": 10,
+    "blockSize": null,  # Will be calculated dynamically based on team count
     "blockRecipe": {"div 12": 6, "div 8": 4},
     "blockStrictOnce": true,
     "noInterdivision": true,
@@ -177,6 +177,14 @@ class EnhancedScheduler:
                 print("   ", k, "→", v)
             print("🔧 Division counts:", dict(Counter(self.team_div.values())))
 
+        # Calculate optimal block size if not provided
+        if not self.params.get("blockSize"):
+            # For even distribution, block size should be roughly teams/2
+            # This ensures each team appears once per block
+            optimal_block_size = max(4, min(20, len(team_names) // 2))
+            self.block_size = optimal_block_size
+            print(f"🔧 Calculated optimal block size: {optimal_block_size} (from {len(team_names)} teams)")
+        
         # Build default recipe if not supplied: one full round per division per block
         if not self.block_recipe and self.block_size:
             counts = Counter(self.team_div.values())
@@ -245,7 +253,22 @@ class EnhancedScheduler:
             print(f"🔧 remaining_slots={len(remaining_slots)} after strict")
 
         # Pair quotas (in-division only)
+        print(f"🔧 Building pair quotas for {len(teams)} teams, target: {self.games_per_team} games per team")
         pair_remaining = self._build_pair_quota([t["name"] for t in teams])
+        
+        # Debug: show the mathematical breakdown
+        total_games_needed = len(teams) * self.games_per_team
+        total_slots_available = len(processed_slots)
+        print(f"🔧 Mathematical breakdown:")
+        print(f"   Teams: {len(teams)}")
+        print(f"   Games per team: {self.games_per_team}")
+        print(f"   Total games needed: {total_games_needed}")
+        print(f"   Total slots available: {total_slots_available}")
+        print(f"   Games that can be scheduled: {total_slots_available}")
+        if total_slots_available < total_games_needed // 2:
+            print(f"   ⚠️ Warning: Not enough slots to schedule all games!")
+        else:
+            print(f"   ✅ Sufficient slots available")
 
         def same_div(a: str, b: str) -> bool:
             da = self.team_div.get(a, "unknown"); db = self.team_div.get(b, "unknown")
@@ -397,6 +420,10 @@ class EnhancedScheduler:
         
         # Final strict validation on full blocks
         self._validate_full_blocks(processed_slots, games_assigned)
+        
+        # Validate that all teams have exactly the target number of games
+        self._validate_game_counts(games_assigned, team_game_count)
+        
         return games_assigned
 
     # ------------------ helpers ------------------
@@ -666,40 +693,47 @@ class EnhancedScheduler:
             if d != "unknown":
                 by_div[d].append(t)
         pair_target: Counter = Counter()
+        
         for d, arr in by_div.items():
             n = len(arr)
             if n < 2: continue
-            # cycles and remainder per team
-            if self.games_per_team >= (n - 1):
-                cycles = self.games_per_team // (n - 1)
-                remainder = self.games_per_team % (n - 1)
-            else:
-                cycles = 0
-                remainder = self.games_per_team
-            # base cycles
+            
+            # Pure mathematical approach: calculate exactly how many games each team needs
+            # Total games needed for this division = n * games_per_team
+            total_games_needed = n * self.games_per_team
+            
+            # Total unique matchups possible = n * (n-1) / 2
+            unique_matchups = n * (n - 1) // 2
+            
+            if unique_matchups == 0: continue
+            
+            # Base games per unique matchup (integer division)
+            base_games_per_matchup = total_games_needed // (2 * unique_matchups)
+            
+            # Extra games to distribute (remainder)
+            extra_games = total_games_needed - (2 * unique_matchups * base_games_per_matchup)
+            
+            # Assign base games to all unique matchups
             for i in range(n):
                 for j in range(i + 1, n):
-                    pair_target[(arr[i], arr[j])] += cycles
-            if remainder:
-                team_games = Counter()
-                for (a, b), cnt in pair_target.items():
-                    if a in arr and b in arr:
-                        team_games[a] += cnt; team_games[b] += cnt
-                extra_pairs = (remainder * n) // 2
-                for _ in range(extra_pairs):
-                    # choose pair with fewest meetings prioritizing lowest team totals
-                    eligible = sorted(arr, key=lambda t: team_games[t])
-                    best_pair, best_cnt = None, 1e9
-                    for i in range(len(eligible)):
-                        for j in range(i + 1, len(eligible)):
-                            a, b = eligible[i], eligible[j]
-                            key = (a, b) if a < b else (b, a)
-                            cnt = pair_target.get(key, 0)
-                            if cnt < best_cnt:
-                                best_cnt = cnt; best_pair = key
-                    a, b = best_pair
-                    pair_target[best_pair] += 1
-                    team_games[a] += 1; team_games[b] += 1
+                    pair_target[(arr[i], arr[j])] += base_games_per_matchup
+            
+            # Distribute extra games to reach exact target
+            if extra_games > 0:
+                # Create list of all possible matchups for this division
+                all_matchups = [(arr[i], arr[j]) for i in range(n) for j in range(i + 1, n)]
+                
+                # Distribute extra games evenly, prioritizing matchups with fewer games
+                for _ in range(extra_games):
+                    # Find matchup with fewest games
+                    best_matchup = min(all_matchups, key=lambda pair: pair_target[pair])
+                    pair_target[best_matchup] += 1
+            
+            # Validate that we're on track to meet the target
+            total_assigned = sum(pair_target.values())
+            if total_assigned * 2 != total_games_needed:
+                print(f"⚠️ Warning: Division {d} target mismatch. Need {total_games_needed} games, assigned {total_assigned * 2}")
+        
         return pair_target
 
     def _validate_full_blocks(self, processed_slots, games_assigned):
@@ -739,7 +773,92 @@ class EnhancedScheduler:
                 # for a full round this must be the entire division team set size
                 if len(have) != len(expected):
                     raise ValueError(f"🚨 Block {seg}/{d}: coverage mismatch {len(have)}/{len(expected)}")
-        print("✅ Full 10-slot blocks validated (exactly once per team).")
+        print(f"✅ Full {self.block_size}-slot blocks validated (exactly once per team).")
+
+    def _validate_game_counts(self, games_assigned: List[Dict[str, Any]], team_game_count: Dict[str, int]):
+        """Validate that all teams have exactly the target number of games."""
+        print(f"🔍 Validating game counts - target: {self.games_per_team} games per team")
+        
+        # Count actual games per team from the assigned games
+        actual_games = Counter()
+        for game in games_assigned:
+            actual_games[game["HomeTeam"]] += 1
+            actual_games[game["AwayTeam"]] += 1
+        
+        # Check for any teams that don't have exactly the target number of games
+        issues = []
+        for team, count in actual_games.items():
+            if count != self.games_per_team:
+                issues.append(f"{team}: {count}/{self.games_per_team} games")
+        
+        if issues:
+            print(f"❌ Game count validation failed:")
+            for issue in issues:
+                print(f"   {issue}")
+            
+            # Try to fix by redistributing games if possible
+            self._fix_game_count_imbalances(games_assigned, actual_games)
+        else:
+            print(f"✅ All teams have exactly {self.games_per_team} games")
+    
+    def _fix_game_count_imbalances(self, games_assigned: List[Dict[str, Any]], actual_games: Counter):
+        """Attempt to fix teams with wrong game counts by redistributing games."""
+        print("🔧 Attempting to fix game count imbalances...")
+        
+        # Find teams with too many or too few games
+        over_teams = [team for team, count in actual_games.items() if count > self.games_per_team]
+        under_teams = [team for team, count in actual_games.items() if count < self.games_per_team]
+        
+        if not over_teams or not under_teams:
+            print("   Cannot fix: need both over and under teams")
+            return
+        
+        # Try to find games involving over teams that can be swapped to involve under teams
+        for over_team in over_teams:
+            for under_team in under_teams:
+                # Look for games where we can swap one team
+                for i, game in enumerate(games_assigned):
+                    if game["HomeTeam"] == over_team and game["AwayTeam"] != under_team:
+                        # Try to swap home team
+                        if self._can_swap_team(game, over_team, under_team, games_assigned):
+                            games_assigned[i]["HomeTeam"] = under_team
+                            actual_games[over_team] -= 1
+                            actual_games[under_team] += 1
+                            print(f"   Swapped {over_team} → {under_team} in home position")
+                            return
+                    elif game["AwayTeam"] == over_team and game["HomeTeam"] != under_team:
+                        # Try to swap away team
+                        if self._can_swap_team(game, over_team, under_team, games_assigned):
+                            games_assigned[i]["AwayTeam"] = under_team
+                            actual_games[over_team] -= 1
+                            actual_games[under_team] += 1
+                            print(f"   Swapped {over_team} → {under_team} in away position")
+                            return
+        
+        print("   Could not find suitable swaps to fix imbalances")
+    
+    def _can_swap_team(self, game: Dict[str, Any], old_team: str, new_team: str, all_games: List[Dict[str, Any]]) -> bool:
+        """Check if swapping a team in a game would create conflicts."""
+        # Check if the new team already plays on the same date
+        game_date = game["Date"]
+        for other_game in all_games:
+            if other_game == game:  # Skip the current game
+                continue
+            if other_game["Date"] == game_date:
+                if (other_game["HomeTeam"] == new_team or 
+                    other_game["AwayTeam"] == new_team):
+                    return False  # Team already plays on this date
+        
+        # Check if the new team already plays against the other team in this game
+        other_team = game["AwayTeam"] if game["HomeTeam"] == old_team else game["HomeTeam"]
+        for other_game in all_games:
+            if other_game == game:  # Skip the current game
+                continue
+            if ((other_game["HomeTeam"] == new_team and other_game["AwayTeam"] == other_team) or
+                (other_game["AwayTeam"] == new_team and other_game["HomeTeam"] == other_team)):
+                return False  # This matchup already exists
+        
+        return True
 
 
 def generate_enhanced_schedule(slots: List[Dict[str, Any]],
