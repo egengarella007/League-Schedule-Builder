@@ -173,7 +173,8 @@ export async function POST(request: NextRequest) {
       success: true,
       schedule: result.schedule || [],
       kpis: result.kpis || {},
-      runId: runData?.id || paramsData.id
+      runId: runData?.id || paramsData.id,
+      note: result.schedule && result.schedule.length > 0 ? 'This is mock data. Deploy your Python scheduler to get real schedules.' : undefined
     })
 
   } catch (error) {
