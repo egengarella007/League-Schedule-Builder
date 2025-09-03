@@ -9,7 +9,7 @@ import xlsxwriter
 from datetime import datetime, timedelta
 import random
 
-# Import only the enhanced scheduler (remove optimization imports)
+# Import the enhanced scheduler
 from enhanced_scheduler import generate_enhanced_schedule
 
 app = FastAPI(title="League Scheduler API", version="1.0.0")
@@ -21,10 +21,6 @@ class ScheduleRequest(BaseModel):
     slots: List[Dict[str, Any]]
     teams: List[Dict[str, Any]]
     divisions: List[Dict[str, Any]]
-
-@app.get("/")
-async def root():
-    return {"message": "League Scheduler API is running", "version": "1.0.0"}
 
 @app.get("/health")
 async def health_check():
