@@ -36,8 +36,8 @@ export default function Home() {
     }
     // Default to the same values as the scheduler parameters
     return {
-      earlyStart: '22:01', // Early games end before 10:01 PM (maps to earlyEnd in scheduler)
-      midStart: '22:31'    // Mid games end before 10:31 PM (maps to midEnd in scheduler)
+      earlyStart: params.eml?.earlyStart || '22:01', // Early games end before 10:01 PM (maps to earlyEnd in scheduler)
+      midStart: params.eml?.midStart || '22:31'    // Mid games end before 10:31 PM (maps to midEnd in scheduler)
     }
   })
 
@@ -63,7 +63,7 @@ export default function Home() {
         return parseInt(saved)
       }
     }
-    return 12 // Default to 12 games
+    return params.gamesPerTeam || 12 // Default to 12 games or use parameter
   })
 
   // Wrapper function to save all params to localStorage

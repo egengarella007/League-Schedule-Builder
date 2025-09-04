@@ -92,6 +92,11 @@ export const ParamsSchema = z.object({
     homeAway: z.number().min(0).max(10).default(0.5),
   }),
 
+  // Calculation divisors (configurable)
+  gapDivisor: z.number().int().min(1).default(3),
+  restDivisor: z.number().int().min(1).default(8),
+  idleDivisor: z.number().int().min(1).default(2),
+
   // Misc
   seed: z.number().int().default(42),
 });
@@ -124,6 +129,9 @@ export const DEFAULT_PARAMS: SchedulerParamsData = {
     weekdayBalance: 0.5,
     homeAway: 0.5,
   },
+  gapDivisor: 3,
+  restDivisor: 8,
+  idleDivisor: 2,
   seed: 42,
 };
 

@@ -41,8 +41,8 @@ def _parse_start_to_time(start_str: str) -> time:
         hh, mm = s.split(":")
         return time(int(hh), int(mm))
     except Exception:
-        # last resort
-        return time(22, 31)
+        # last resort - use EML parameters if available
+        return time(22, 31)  # Fallback only if no EML params available
 
 
 def _parse_start_to_date(start_str: str) -> str:
@@ -61,7 +61,7 @@ def create_bucket_from_schedule(schedule_data: List[Dict], late_threshold: time)
     """Create GameSlot objects from schedule data with proper field mapping"""
     slots = []
     for i, item in enumerate(schedule_data):
-        start_str = item.get('start') or item.get('time', '22:31')
+        start_str = item.get('start') or item.get('time', '22:31')  # Fallback only if no time available
         t = _parse_start_to_time(start_str)
         is_late = (t >= late_threshold)
         team1 = item.get('home', item.get('team1', ''))

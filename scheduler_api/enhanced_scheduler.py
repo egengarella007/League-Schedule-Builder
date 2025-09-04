@@ -61,11 +61,14 @@ class EnhancedScheduler:
         # E/M/L cutoffs - uses parameters from user input, with fallback defaults
         # User sets earlyStart/midStart in Parameters tab, which become earlyEnd/midEnd for scheduler
         default_game_minutes = self.params.get("defaultGameMinutes", 80)
-        late_start_hour = 22  # 10 PM - fallback default
-        late_start_minute = 30  # 10:30 PM - fallback default
         
-        self.early_end = self._parse_time(self.params.get("eml", {}).get("earlyEnd", f"{late_start_hour}:01"))
-        self.mid_end = self._parse_time(self.params.get("eml", {}).get("midEnd", f"{late_start_hour}:{late_start_minute}"))
+        # Get EML times from parameters, with fallback defaults
+        eml_params = self.params.get("eml", {})
+        early_end_default = eml_params.get("earlyStart", "22:01")  # Use earlyStart as fallback
+        mid_end_default = eml_params.get("midStart", "22:31")      # Use midStart as fallback
+        
+        self.early_end = self._parse_time(eml_params.get("earlyEnd", early_end_default))
+        self.mid_end = self._parse_time(eml_params.get("midEnd", mid_end_default))
 
         # Block settings - will be calculated dynamically in build_schedule
         self.block_size = self.params.get("blockSize", None)  # Will be calculated based on team count
@@ -120,7 +123,14 @@ class EnhancedScheduler:
             hh, mm = map(int, (time_str or "22:01").split(":"))
             return time(hh, mm)
         except Exception:
-            return time(22, 1)
+            # Fallback to EML parameters if available, otherwise use default
+            eml_params = self.params.get("eml", {})
+            fallback_time = eml_params.get("earlyStart", "22:01")
+            try:
+                hh, mm = map(int, fallback_time.split(":"))
+                return time(hh, mm)
+            except Exception:
+                return time(22, 1)  # Ultimate fallback
 
     def classify_bucket(self, start_dt: datetime) -> str:
         t = start_dt.time()
@@ -172,35 +182,42 @@ class EnhancedScheduler:
 
         # Update dynamic parameters now that we have team count
         if self.games_per_team is None:
-            # Dynamic games per team: more teams = fewer games to keep schedule manageable
-            if team_count <= 8:
-                default_games = 14  # 8 teams: 14 games (7 opponents × 2)
-            elif team_count <= 12:
-                default_games = 12  # 12 teams: 12 games (11 opponents × 1 + 1 repeat)
-            elif team_count <= 16:
-                default_games = 10  # 16 teams: 10 games (15 opponents, some repeats)
+            # Dynamic games per team: works for any team count (2-100+)
+            # Formula: For even teams, each team plays every other team once
+            # For odd teams, each team plays every other team once (with BYE system)
+            if team_count % 2 == 0:
+                # Even teams: each team plays (team_count - 1) games
+                default_games = team_count - 1
             else:
-                default_games = 8   # 20+ teams: 8 games (many repeats)
+                # Odd teams: each team plays (team_count - 1) games (with BYE system)
+                default_games = team_count - 1
+            
             self.games_per_team = default_games
-            print(f"🔧 Calculated dynamic games per team: {default_games} (from {team_count} teams)")
+            print(f"🔧 Calculated dynamic games per team: {default_games} (from {team_count} teams, {'even' if team_count % 2 == 0 else 'odd'})")
         else:
             print(f"🔧 Using provided games per team: {self.games_per_team}")
 
         if self.target_gap_days is None:
-            self.target_gap_days = max(5, min(10, team_count // 3))
-            print(f"🔧 Calculated dynamic target gap days: {self.target_gap_days} (from {team_count} teams)")
+            # Use configurable divisor, default to 3
+            gap_divisor = self.params.get("gapDivisor", 3)
+            self.target_gap_days = max(5, min(10, team_count // gap_divisor))
+            print(f"🔧 Calculated dynamic target gap days: {self.target_gap_days} (from {team_count} teams, divisor: {gap_divisor})")
         else:
             print(f"🔧 Using provided target gap days: {self.target_gap_days}")
 
         if self.min_rest_days is None:
-            self.min_rest_days = max(2, min(4, team_count // 8))
-            print(f"🔧 Calculated dynamic min rest days: {self.min_rest_days} (from {team_count} teams)")
+            # Use configurable divisor, default to 8
+            rest_divisor = self.params.get("restDivisor", 8)
+            self.min_rest_days = max(2, min(4, team_count // rest_divisor))
+            print(f"🔧 Calculated dynamic min rest days: {self.min_rest_days} (from {team_count} teams, divisor: {rest_divisor})")
         else:
             print(f"🔧 Using provided min rest days: {self.min_rest_days}")
 
         if self.max_idle_days is None:
-            self.max_idle_days = max(8, min(16, team_count // 2))
-            print(f"🔧 Calculated dynamic max idle days: {self.max_idle_days} (from {team_count} teams)")
+            # Use configurable divisor, default to 2
+            idle_divisor = self.params.get("idleDivisor", 2)
+            self.max_idle_days = max(8, min(16, team_count // idle_divisor))
+            print(f"🔧 Calculated dynamic max idle days: {self.max_idle_days} (from {team_count} teams, divisor: {idle_divisor})")
         else:
             print(f"🔧 Using provided max idle days: {self.max_idle_days}")
 
@@ -222,7 +239,7 @@ class EnhancedScheduler:
         if self.block_size is None:
             # For even distribution, block size should be roughly teams/2
             # This ensures each team appears once per block
-            optimal_block_size = max(4, min(20, team_count // 2))
+            optimal_block_size = team_count // 2  # No constraints - works for any team count
             self.block_size = optimal_block_size
             print(f"🔧 Calculated optimal block size: {optimal_block_size} (from {team_count} teams)")
         
