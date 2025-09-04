@@ -206,10 +206,16 @@ class EnhancedScheduler:
             print(f"🔧 Using provided target gap days: {self.target_gap_days}")
 
         if self.min_rest_days is None:
-            # Use configurable divisor, default to 8
-            rest_divisor = self.params.get("restDivisor", 8)
-            self.min_rest_days = max(2, min(4, team_count // rest_divisor))
-            print(f"🔧 Calculated dynamic min rest days: {self.min_rest_days} (from {team_count} teams, divisor: {rest_divisor})")
+            # Use user-provided minRestDays if available, otherwise calculate dynamically
+            user_min_rest = self.params.get("minRestDays", None)
+            if user_min_rest is not None:
+                self.min_rest_days = user_min_rest
+                print(f"🔧 Using user-provided min rest days: {self.min_rest_days}")
+            else:
+                # Use configurable divisor, default to 8
+                rest_divisor = self.params.get("restDivisor", 8)
+                self.min_rest_days = max(2, min(4, team_count // rest_divisor))
+                print(f"🔧 Calculated dynamic min rest days: {self.min_rest_days} (from {team_count} teams, divisor: {rest_divisor})")
         else:
             print(f"🔧 Using provided min rest days: {self.min_rest_days}")
 
@@ -242,7 +248,7 @@ class EnhancedScheduler:
             optimal_block_size = team_count // 2  # No constraints - works for any team count
             self.block_size = optimal_block_size
             print(f"🔧 Calculated optimal block size: {optimal_block_size} (from {team_count} teams)")
-        
+
         # Build default recipe if not supplied: one full round per division per block
         if not self.block_recipe and self.block_size:
             counts = Counter(self.team_div.values())
@@ -408,11 +414,14 @@ class EnhancedScheduler:
                         continue
 
                     # time constraints
+                    # Min rest days is ALWAYS enforced (hard constraint)
+                    if not self.can_play(a, slot["Start"], last_game_time[a]):
+                        continue
+                    if not self.can_play(b, slot["Start"], last_game_time[b]):
+                        continue
+                    
+                    # Other constraints can be relaxed if needed
                     if not relax:
-                        if not self.can_play(a, slot["Start"], last_game_time[a]):
-                            continue
-                        if not self.can_play(b, slot["Start"], last_game_time[b]):
-                            continue
                         if self.avoid_back_to_back_opponent and (opp_last_week[a] == b or opp_last_week[b] == a):
                             continue
 
@@ -479,7 +488,7 @@ class EnhancedScheduler:
             # Each week should have exactly 11 matchups
             games_per_week = len([t["name"] for t in teams]) // 2  # 22 ÷ 2 = 11
             week_number = (len(games_assigned) // games_per_week) + 1
-            
+
             games_assigned.append({
                 "Date": slot["Start"].strftime("%Y-%m-%d"),
                 "Start": slot["Start"].strftime("%I:%M %p"),
