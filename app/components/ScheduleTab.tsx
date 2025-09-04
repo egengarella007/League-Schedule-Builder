@@ -549,7 +549,11 @@ export default function ScheduleTab({ slots: propSlots, teams: propTeams, divisi
         optimalBlockSize,
         blockRecipe,
         divTeamCounts,
-        totalGames: currentSchedule.length
+        totalGames: currentSchedule.length,
+        emlThresholds: {
+          earlyStart: params.eml?.earlyStart || "10:01 PM",
+          midStart: params.eml?.midStart || "10:31 PM"
+        }
       })
       
       const requestBody = {
@@ -557,8 +561,8 @@ export default function ScheduleTab({ slots: propSlots, teams: propTeams, divisi
         blockSize: optimalBlockSize,  // Dynamic: 11 for 22 teams
         blockRecipe: blockRecipe,     // Dynamic: calculated based on team counts per division
         divisionSizes: divTeamCounts, // Dynamic: actual team counts per division
-        earlyStart: "10:01 PM",  // Late game threshold (could be made dynamic)
-        midStart: "10:31 PM",    // Very late game threshold (could be made dynamic)
+        earlyStart: params.eml?.earlyStart || "10:01 PM",  // Use EML threshold from parameters
+        midStart: params.eml?.midStart || "10:31 PM",      // Use EML threshold from parameters
         target_week: currentWeek,  // 🎯 Target specific week for optimization
         defaultGameMinutes: teamCount <= 8 ? 60 : teamCount <= 16 ? 80 : 90, // Dynamic based on team count
         weights: { 
