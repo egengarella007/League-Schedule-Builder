@@ -43,6 +43,7 @@ class OptimizationRequest(BaseModel):
     dryRun: Optional[bool] = True
     optimize_days_since: Optional[bool] = True
     force_full_validation: Optional[bool] = True
+    minRestDays: Optional[int] = None
 
 @app.get("/health")
 async def health_check():
@@ -157,7 +158,8 @@ async def optimize_schedule(request: OptimizationRequest):
             'optimize_days_since': request.optimize_days_since,
             'force_full_validation': request.force_full_validation,
             'defaultGameMinutes': default_game_minutes,
-            'weights': weights
+            'weights': weights,
+            'minRestDays': request.minRestDays
         }
         
         # Call the real optimization function

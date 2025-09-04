@@ -581,7 +581,8 @@ export default function ScheduleTab({ slots: propSlots, teams: propTeams, divisi
         dryRun: false,  // Run with full validation to prevent +0d games
         // Ensure three-phase optimization runs
         optimize_days_since: true,  // Force days-since optimization
-        force_full_validation: true  // Force full validation mode
+        force_full_validation: true,  // Force full validation mode
+        minRestDays: params.minRestDays || 0  // Minimum rest days between games
       }
       
       console.log(`🎯 Auto-optimization API request for Week ${currentWeek}:`, requestBody)

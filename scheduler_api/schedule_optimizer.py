@@ -253,7 +253,8 @@ def _place_teams_in_late_slots(bucket: List[Dict],
                 # Check if this matchup can be placed in this late slot without conflicts
                 # ENHANCED CHECK: Also prevent same-day conflicts within the current week
                 slot_date = _parse_start_to_date(cleared_games[late_slot].get('start', ''))
-                if not _would_create_conflict(cleared_games, late_slot, matchup['home'], matchup['away'], slot_date, previous_bucket):
+                min_rest_days = params.get('minRestDays', 0) if params else 0
+                if not _would_create_conflict(cleared_games, late_slot, matchup['home'], matchup['away'], slot_date, previous_bucket, min_rest_days):
                     # ADDITIONAL CHECK: Verify no same-day conflicts within current week
                     same_day_conflict = False
                     for i, other_game in enumerate(cleared_games):
@@ -533,10 +534,56 @@ def _calculate_team_combination_score(team1: str, team2: str, late_counts: Dict[
         return 999  # High penalty for errors
 
 
-def _would_create_conflict(bucket: List[Dict], current_game_index: int, new_home: str, new_away: str, game_date: str, previous_bucket: List[Dict] = None) -> bool:
+def _team_played_within_rest_days(team: str, game_date: str, current_bucket: List[Dict], previous_bucket: List[Dict] = None, min_rest_days: int = 0) -> bool:
+    """
+    Check if a team played within the minimum rest days before the given game date.
+    """
+    try:
+        from datetime import datetime, timedelta
+        
+        # Parse the game date
+        game_dt = datetime.strptime(game_date, '%Y-%m-%d').date()
+        
+        # Calculate the earliest allowed game date (min_rest_days before game_date)
+        earliest_allowed = game_dt - timedelta(days=min_rest_days)
+        
+        # Check current bucket for games within rest period
+        for game in current_bucket:
+            if not game.get('home') or not game.get('away'):
+                continue
+                
+            if team in (game.get('home', ''), game.get('away', '')):
+                other_date_str = _parse_start_to_date(game.get('start', ''))
+                if other_date_str:
+                    other_date = datetime.strptime(other_date_str, '%Y-%m-%d').date()
+                    if other_date >= earliest_allowed and other_date < game_dt:
+                        return True
+        
+        # Check previous bucket for games within rest period
+        if previous_bucket:
+            for game in previous_bucket:
+                if not game.get('home') or not game.get('away'):
+                    continue
+                    
+                if team in (game.get('home', ''), game.get('away', '')):
+                    other_date_str = _parse_start_to_date(game.get('start', ''))
+                    if other_date_str:
+                        other_date = datetime.strptime(other_date_str, '%Y-%m-%d').date()
+                        if other_date >= earliest_allowed and other_date < game_dt:
+                            return True
+        
+        return False
+        
+    except Exception as e:
+        print(f"  Error checking rest days for {team}: {e}", file=sys.stderr)
+        return False  # Assume no conflict if error
+
+
+def _would_create_conflict(bucket: List[Dict], current_game_index: int, new_home: str, new_away: str, game_date: str, previous_bucket: List[Dict] = None, min_rest_days: int = 0) -> bool:
     """
     Check if assigning new teams to a game would create day overlap conflicts.
     Now also checks against the previous bucket to catch cross-bucket day conflicts.
+    Also checks for minimum rest days between games.
     """
     try:
         # Check all other games in the current bucket for the same date
@@ -569,6 +616,14 @@ def _would_create_conflict(bucket: List[Dict], current_game_index: int, new_home
                     if new_home in (other_home, other_away) or new_away in (other_home, other_away):
                         print(f"  Cross-bucket conflict detected: {new_home} or {new_away} already played on {game_date} in previous bucket", file=sys.stderr)
                         return True
+        
+        # Check for minimum rest days between games
+        if min_rest_days > 0:
+            # Check if either team played within the minimum rest days
+            for team in [new_home, new_away]:
+                if _team_played_within_rest_days(team, game_date, bucket, previous_bucket, min_rest_days):
+                    print(f"  Min rest days conflict: {team} played within {min_rest_days} days of {game_date}", file=sys.stderr)
+                    return True
         
         return False
         
@@ -932,7 +987,7 @@ def optimize_from_dict(schedule: List[Dict],
         }
 
 
-def _find_best_slot_for_matchup(cleared_games: List[Dict], matchup: Dict, placed_matchups: Set[str], previous_bucket: List[Dict] = None) -> int:
+def _find_best_slot_for_matchup(cleared_games: List[Dict], matchup: Dict, placed_matchups: Set[str], previous_bucket: List[Dict] = None, params: Dict = None) -> int:
     """
     Find the best available slot for a matchup, prioritizing late slots for teams with few late games.
     Returns game index or None if no slot available.
@@ -954,18 +1009,21 @@ def _find_best_slot_for_matchup(cleared_games: List[Dict], matchup: Dict, placed
         late_slots = [i for i in available_slots 
                      if _parse_start_to_time(cleared_games[i].get('start', '')) >= _parse_start_to_time(matchup['start_time'])]
         
+        # Get min rest days from params
+        min_rest_days = params.get('minRestDays', 0) if params else 0
+        
         # If this is a high-priority matchup (few late games), try late slots first
         if matchup['combined_late_count'] <= 1:  # High priority
             # Try late slots first, then any available slot
             for slot in late_slots + available_slots:
                 if not _would_create_conflict(cleared_games, slot, matchup['home'], matchup['away'], 
-                                           _parse_start_to_date(cleared_games[slot].get('start', '')), previous_bucket):
+                                           _parse_start_to_date(cleared_games[slot].get('start', '')), previous_bucket, min_rest_days):
                     return slot
         else:
             # Lower priority matchup, try any available slot
             for slot in available_slots:
                 if not _would_create_conflict(cleared_games, slot, matchup['home'], matchup['away'], 
-                                           _parse_start_to_date(cleared_games[slot].get('start', '')), previous_bucket):
+                                           _parse_start_to_date(cleared_games[slot].get('start', '')), previous_bucket, min_rest_days):
                     return slot
         
         return None
@@ -975,7 +1033,7 @@ def _find_best_slot_for_matchup(cleared_games: List[Dict], matchup: Dict, placed
         return None
 
 
-def _try_conflict_resolution(cleared_games: List[Dict], matchup: Dict, placed_matchups: Set[str], late_threshold: time, previous_bucket: List[Dict] = None) -> bool:
+def _try_conflict_resolution(cleared_games: List[Dict], matchup: Dict, placed_matchups: Set[str], late_threshold: time, previous_bucket: List[Dict] = None, params: Dict = None) -> bool:
     """
     AGGRESSIVE conflict resolution: Try multiple swap combinations to place the matchup.
     Returns True if conflict was resolved, False otherwise.
@@ -991,17 +1049,17 @@ def _try_conflict_resolution(cleared_games: List[Dict], matchup: Dict, placed_ma
         
         # STRATEGY 1: Try direct swaps (1-to-1)
         print(f"AGGRESSIVE: Strategy 1: Trying direct 1-to-1 swaps...", file=sys.stderr)
-        if _try_direct_swap(cleared_games, matchup, filled_games, placed_matchups, previous_bucket):
+        if _try_direct_swap(cleared_games, matchup, filled_games, placed_matchups, previous_bucket, params):
             return True
         
         # STRATEGY 2: Try chain swaps (A→B→C→empty)
         print(f"AGGRESSIVE: Strategy 2: Trying chain swaps (A→B→C→empty)...", file=sys.stderr)
-        if _try_chain_swap(cleared_games, matchup, filled_games, placed_matchups, previous_bucket):
+        if _try_chain_swap(cleared_games, matchup, filled_games, placed_matchups, previous_bucket, params):
             return True
         
         # STRATEGY 3: Try multi-swap combinations
         print(f"AGGRESSIVE: Strategy 3: Trying multi-swap combinations...", file=sys.stderr)
-        if _try_multi_swap(cleared_games, matchup, filled_games, placed_matchups, previous_bucket):
+        if _try_multi_swap(cleared_games, matchup, filled_games, placed_matchups, previous_bucket, params):
             return True
         
         print(f"AGGRESSIVE: All conflict resolution strategies failed for {matchup['home']} vs {matchup['away']}", file=sys.stderr)
@@ -1018,7 +1076,7 @@ def _try_conflict_resolution(cleared_games: List[Dict], matchup: Dict, placed_ma
         return False
 
 
-def _try_direct_swap(cleared_games: List[Dict], matchup: Dict, filled_games: List[Tuple[int, Dict]], placed_matchups: Set[str], previous_bucket: List[Dict] = None) -> bool:
+def _try_direct_swap(cleared_games: List[Dict], matchup: Dict, filled_games: List[Tuple[int, Dict]], placed_matchups: Set[str], previous_bucket: List[Dict] = None, params: Dict = None) -> bool:
     """Try direct 1-to-1 swaps between matchup and filled games."""
     try:
         for game_index, filled_game in filled_games:
@@ -1029,9 +1087,12 @@ def _try_direct_swap(cleared_games: List[Dict], matchup: Dict, filled_games: Lis
             temp_away = filled_game['away']
             temp_div = filled_game['div']
             
+            # Get min rest days from params
+            min_rest_days = params.get('minRestDays', 0) if params else 0
+            
             # Try placing the new matchup in this slot
             if not _would_create_conflict(cleared_games, game_index, matchup['home'], matchup['away'], 
-                                       _parse_start_to_date(filled_game.get('start', '')), previous_bucket):
+                                       _parse_start_to_date(filled_game.get('start', '')), previous_bucket, min_rest_days):
                 
                 # Try placing the old matchup in an empty slot
                 empty_slots = [i for i, game in enumerate(cleared_games) 
@@ -1039,7 +1100,7 @@ def _try_direct_swap(cleared_games: List[Dict], matchup: Dict, filled_games: Lis
                 
                 for empty_slot in empty_slots:
                     if not _would_create_conflict(cleared_games, empty_slot, temp_home, temp_away, 
-                                               _parse_start_to_date(cleared_games[empty_slot].get('start', '')), previous_bucket):
+                                               _parse_start_to_date(cleared_games[empty_slot].get('start', '')), previous_bucket, min_rest_days):
                         
                         # SWAP SUCCESSFUL! Execute the swap
                         print(f"DIRECT SWAP SUCCESSFUL!", file=sys.stderr)
@@ -1075,10 +1136,13 @@ def _try_direct_swap(cleared_games: List[Dict], matchup: Dict, filled_games: Lis
         return False
 
 
-def _try_chain_swap(cleared_games: List[Dict], matchup: Dict, filled_games: List[Tuple[int, Dict]], placed_matchups: Set[str], previous_bucket: List[Dict] = None) -> bool:
+def _try_chain_swap(cleared_games: List[Dict], matchup: Dict, filled_games: List[Tuple[int, Dict]], placed_matchups: Set[str], previous_bucket: List[Dict] = None, params: Dict = None) -> bool:
     """Try chain swaps: A→B→C→empty slot."""
     try:
         print(f"   Attempting chain swap for {matchup['home']} vs {matchup['away']}", file=sys.stderr)
+        
+        # Get min rest days from params
+        min_rest_days = params.get('minRestDays', 0) if params else 0
         
         # Try each filled game as the starting point for the chain
         for start_index, start_game in filled_games:
@@ -1091,7 +1155,7 @@ def _try_chain_swap(cleared_games: List[Dict], matchup: Dict, filled_games: List
                 
                 # Check if we can move start_game to other_game's slot
                 if not _would_create_conflict(cleared_games, other_index, start_game['home'], start_game['away'], 
-                                           _parse_start_to_date(other_game.get('start', '')), previous_bucket):
+                                           _parse_start_to_date(other_game.get('start', '')), previous_bucket, min_rest_days):
                     
                     # Check if we can move other_game to an empty slot
                     empty_slots = [i for i, game in enumerate(cleared_games) 
@@ -1099,11 +1163,11 @@ def _try_chain_swap(cleared_games: List[Dict], matchup: Dict, filled_games: List
                     
                     for empty_slot in empty_slots:
                         if not _would_create_conflict(cleared_games, empty_slot, other_game['home'], other_game['away'], 
-                                                   _parse_start_to_date(cleared_games[empty_slot].get('start', '')), previous_bucket):
+                                                   _parse_start_to_date(cleared_games[empty_slot].get('start', '')), previous_bucket, min_rest_days):
                             
                             # Check if we can place the new matchup in start_game's slot
                             if not _would_create_conflict(cleared_games, start_index, matchup['home'], matchup['away'], 
-                                                       _parse_start_to_date(start_game.get('start', '')), previous_bucket):
+                                                       _parse_start_to_date(start_game.get('start', '')), previous_bucket, min_rest_days):
                                 
                                 # CHAIN SWAP SUCCESSFUL! Execute the chain
                                 print(f"   CHAIN SWAP SUCCESSFUL!", file=sys.stderr)
@@ -1148,7 +1212,7 @@ def _try_chain_swap(cleared_games: List[Dict], matchup: Dict, filled_games: List
         return False
 
 
-def _try_multi_swap(cleared_games: List[Dict], matchup: Dict, filled_games: List[Tuple[int, Dict]], placed_matchups: Set[str], previous_bucket: List[Dict] = None) -> bool:
+def _try_multi_swap(cleared_games: List[Dict], matchup: Dict, filled_games: List[Tuple[int, Dict]], placed_matchups: Set[str], previous_bucket: List[Dict] = None, params: Dict = None) -> bool:
     """Try complex multi-swap combinations involving 3+ games."""
     try:
         print(f"   Attempting multi-swap for {matchup['home']} vs {matchup['away']}", file=sys.stderr)
@@ -1163,9 +1227,9 @@ def _try_multi_swap(cleared_games: List[Dict], matchup: Dict, filled_games: List
             game3_idx, game3 = filled_games[2]
             
             # Check if rotation is possible without conflicts
-            if (_can_place_without_conflict(cleared_games, game1_idx, game2['home'], game2['away'], previous_bucket) and
-                _can_place_without_conflict(cleared_games, game2_idx, game3['home'], game3['away'], previous_bucket) and
-                _can_place_without_conflict(cleared_games, game3_idx, matchup['home'], matchup['away'], previous_bucket)):
+            if (_can_place_without_conflict(cleared_games, game1_idx, game2['home'], game2['away'], previous_bucket, params) and
+                _can_place_without_conflict(cleared_games, game2_idx, game3['home'], game3['away'], previous_bucket, params) and
+                _can_place_without_conflict(cleared_games, game3_idx, matchup['home'], matchup['away'], previous_bucket, params)):
                 
                 print(f"   MULTI-SWAP SUCCESSFUL! Rotating 3 games", file=sys.stderr)
                 
@@ -1208,14 +1272,15 @@ def _try_multi_swap(cleared_games: List[Dict], matchup: Dict, filled_games: List
         return False
 
 
-def _can_place_without_conflict(cleared_games: List[Dict], game_index: int, home: str, away: str, previous_bucket: List[Dict] = None) -> bool:
+def _can_place_without_conflict(cleared_games: List[Dict], game_index: int, home: str, away: str, previous_bucket: List[Dict] = None, params: Dict = None) -> bool:
     """Check if placing teams in a specific slot would create conflicts."""
     try:
         game_date = _parse_start_to_date(cleared_games[game_index].get('start', ''))
         if not game_date:
             return True  # No date info, assume safe
         
-        return not _would_create_conflict(cleared_games, game_index, home, away, game_date, previous_bucket)
+        min_rest_days = params.get('minRestDays', 0) if params else 0
+        return not _would_create_conflict(cleared_games, game_index, home, away, game_date, previous_bucket, min_rest_days)
         
     except Exception as e:
         print(f"  Error checking placement safety: {e}", file=sys.stderr)

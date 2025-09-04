@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { schedule, blockSize, blockRecipe, earlyStart, midStart, earlyEnd, midEnd, defaultGameMinutes, weights, wGlobal, wRolling, wRepeat, wDispersion, wLateFairness, globalSlack, rollingSlack, maxPasses, dryRun, optimize_days_since, force_full_validation } = body
+    const { schedule, blockSize, blockRecipe, earlyStart, midStart, earlyEnd, midEnd, defaultGameMinutes, weights, wGlobal, wRolling, wRepeat, wDispersion, wLateFairness, globalSlack, rollingSlack, maxPasses, dryRun, optimize_days_since, force_full_validation, minRestDays } = body
 
     console.log('🔧 Optimization request received:', {
       gamesCount: schedule?.length,
@@ -49,7 +49,8 @@ export async function POST(request: NextRequest) {
       maxPasses: maxPasses || 3,
       dryRun: dryRun !== false,
       optimize_days_since: optimize_days_since !== false,  // Force days-since optimization
-      force_full_validation: force_full_validation !== false  // Force full validation mode
+      force_full_validation: force_full_validation !== false,  // Force full validation mode
+      minRestDays: minRestDays || 0  // Minimum rest days between games
     }
 
     // Call Cloud Run Python scheduler for optimization
