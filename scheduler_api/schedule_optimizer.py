@@ -111,7 +111,8 @@ def _place_teams_in_late_slots(bucket: List[Dict],
                                completed_buckets: List[List[Dict]], 
                                late_threshold: time,
                                previous_bucket: List[Dict] = None,
-                               optimize_days_since: bool = True) -> Tuple[List[Dict], List[Dict]]:
+                               optimize_days_since: bool = True,
+                               params: Dict = None) -> Tuple[List[Dict], List[Dict]]:
     """
     Clear and rebuild approach: Remove all matchups from the week's games, then add them back
     systematically in order of priority (fewest late games first) to balance distribution.
@@ -334,7 +335,7 @@ def _place_teams_in_late_slots(bucket: List[Dict],
             if current_week_start_date:
                 print(f"🔍 DEBUG: Calling Phase 2 function with current_week_start_date={current_week_start_date}", file=sys.stderr)
                 try:
-                    _optimize_days_since_last_played(cleared_games, existing_matchups, placed_matchups, completed_buckets, current_week_start_date, previous_bucket, late_threshold, swaps_made)
+                    _optimize_days_since_last_played(cleared_games, existing_matchups, placed_matchups, completed_buckets, current_week_start_date, previous_bucket, late_threshold, swaps_made, params)
                     print(f"🔍 DEBUG: Phase 2 function completed successfully", file=sys.stderr)
                 except Exception as e:
                     print(f"🔍 DEBUG: Phase 2 function failed with error: {e}", file=sys.stderr)
@@ -773,7 +774,7 @@ def optimize_from_dict(schedule: List[Dict],
                         # Pass the previous bucket to catch cross-bucket day conflicts
                         previous_bucket = completed_buckets[-1] if completed_buckets else None
                         optimized_week, week_swaps = _place_teams_in_late_slots(
-                            buckets[i], divisions, completed_buckets, mid_start_time, previous_bucket, optimize_days_since
+                            buckets[i], divisions, completed_buckets, mid_start_time, previous_bucket, optimize_days_since, params
                         )
                         
                         print(f"  Week {i+1}: Placement returned {len(week_swaps)} team assignments", file=sys.stderr)
@@ -838,7 +839,7 @@ def optimize_from_dict(schedule: List[Dict],
                         # Pass the previous bucket to catch cross-bucket day conflicts
                         previous_bucket = completed_buckets[-1] if completed_buckets else None
                         optimized_week, week_swaps = _place_teams_in_late_slots(
-                            bucket, divisions, completed_buckets, mid_start_time, previous_bucket, optimize_days_since
+                            bucket, divisions, completed_buckets, mid_start_time, previous_bucket, optimize_days_since, params
                         )
                         
                         print(f"  Week {i+1}: Placement returned {len(week_swaps)} team assignments", file=sys.stderr)
@@ -1407,7 +1408,7 @@ def _find_partner_team(team: str, divisions: Dict[str, List[str]], placed_teams:
         return None
 
 
-def _calculate_days_since_last_played(team: str, completed_buckets: List[List[Dict]], current_week_start_date: str) -> int:
+def _calculate_days_since_last_played(team: str, completed_buckets: List[List[Dict]], current_week_start_date: str, params: Dict = None) -> int:
     """
     Calculate how many days it's been since a team last played.
     Returns the number of days, or a large number if they've never played.
@@ -1437,7 +1438,9 @@ def _calculate_days_since_last_played(team: str, completed_buckets: List[List[Di
         
         if last_game_date is None:
             # Team has never played before
-            return 999  # Large number to give them priority
+            # Use configurable priority value, default to 999 for high priority
+            never_played_priority = params.get('neverPlayedPriority', 999) if params else 999
+            return never_played_priority
         
         # Calculate days difference
         days_since = (current_date - last_game_date).days
@@ -1445,7 +1448,9 @@ def _calculate_days_since_last_played(team: str, completed_buckets: List[List[Di
         
     except Exception as e:
         print(f"  Error calculating days since last played for {team}: {e}", file=sys.stderr)
-        return 0  # Default to 0 if there's an error
+        # Use configurable error fallback, default to 0
+        error_fallback = params.get('daysSinceErrorFallback', 0) if params else 0
+        return error_fallback
 
 
 def _find_available_dates_in_bucket(cleared_games: List[Dict]) -> List[Tuple[int, str]]:
@@ -1598,7 +1603,8 @@ def _optimize_days_since_last_played(cleared_games: List[Dict],
                                     current_week_start_date: str,
                                     previous_bucket: List[Dict] = None,
                                     late_threshold: time = None,
-                                    swaps_made: List[Dict] = None) -> None:
+                                    swaps_made: List[Dict] = None,
+                                    params: Dict = None) -> None:
     """
     Optimize placement by placing UNPLACED teams in the EARLIEST AVAILABLE slots.
     This runs AFTER late game optimization and places teams that weren't placed in Phase 1.
@@ -1624,7 +1630,7 @@ def _optimize_days_since_last_played(cleared_games: List[Dict],
         # Calculate days since last played for each unplaced team
         team_days_since = {}
         for team in unplaced_teams:
-            days = _calculate_days_since_last_played(team, completed_buckets, current_week_start_date)
+            days = _calculate_days_since_last_played(team, completed_buckets, current_week_start_date, params)
             team_days_since[team] = days
             print(f"      {team}: {days} days since last played", file=sys.stderr)
         
