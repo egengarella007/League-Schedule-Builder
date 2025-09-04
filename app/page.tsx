@@ -36,8 +36,8 @@ export default function Home() {
     }
     // Default to the same values as the scheduler parameters
     return {
-      earlyStart: '22:01', // Early games start before 10:01 PM
-      midStart: '22:31'    // Mid games start before 10:31 PM
+      earlyStart: '22:01', // Early games end before 10:01 PM (maps to earlyEnd in scheduler)
+      midStart: '22:31'    // Mid games end before 10:31 PM (maps to midEnd in scheduler)
     }
   })
 

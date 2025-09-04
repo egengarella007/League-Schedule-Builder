@@ -8,8 +8,8 @@ import { saveParamsAction, getLatestParamsAction } from '@/app/actions/parameter
 
 interface ParametersTabProps {
   emlThresholds: {
-    earlyStart: string
-    midStart: string
+    earlyStart: string  // Maps to earlyEnd in scheduler
+    midStart: string    // Maps to midEnd in scheduler
   }
   setEmlThresholds: (thresholds: { earlyStart: string; midStart: string }) => void
   amountOfGames: number
@@ -211,7 +211,7 @@ export default function ParametersTab({ emlThresholds, setEmlThresholds, amountO
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Early Start Time (Early games start before this time)
+              Early End Time (Early games end before this time)
             </label>
             <input
               type="time"
@@ -220,12 +220,12 @@ export default function ParametersTab({ emlThresholds, setEmlThresholds, amountO
               className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
             />
             <p className="text-xs text-gray-400 mt-1">
-              Games starting before this time are considered "Early"
+              Games ending before this time are considered "Early"
             </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Mid Start Time (Mid games start before this time)
+              Mid End Time (Mid games end before this time)
             </label>
             <input
               type="time"
@@ -234,7 +234,7 @@ export default function ParametersTab({ emlThresholds, setEmlThresholds, amountO
               className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
             />
             <p className="text-xs text-gray-400 mt-1">
-              Games starting before this time are considered "Mid"
+              Games ending before this time are considered "Mid"
             </p>
           </div>
         </div>
