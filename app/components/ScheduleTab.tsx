@@ -529,18 +529,22 @@ export default function ScheduleTab({ slots: propSlots, teams: propTeams, divisi
         schedule: scheduleData,
         blockSize: optimalBlockSize,  // Dynamic: 11 for 22 teams
         blockRecipe: blockRecipe,     // Dynamic: calculated based on division distribution
-        divisionSizes: { 'Tin Super': 12, 'Tin South': 8 }, // Number of teams in each division
+        divisionSizes: divCounts, // Dynamic: calculated from actual division distribution
         earlyStart: "10:01 PM",  // ✅ Use START time for EML classification
         midStart: "10:31 PM",    // ✅ Use START time for EML classification
         target_week: currentWeek,  // 🎯 Target specific week for optimization
-        defaultGameMinutes: 80,
-        weights: { w_eml: 1.0, w_runs: 0.2, w_rest: 0.6 },
-        wGlobal: 2.0,
-        wRolling: 1.2,
+        defaultGameMinutes: teamCount <= 8 ? 60 : teamCount <= 16 ? 80 : 90, // Dynamic based on team count
+        weights: { 
+          w_eml: teamCount > 16 ? 1.5 : teamCount > 12 ? 1.2 : 1.0, 
+          w_runs: 0.2, 
+          w_rest: 0.6 
+        },
+        wGlobal: teamCount > 16 ? 2.5 : teamCount > 12 ? 2.2 : 2.0,
+        wRolling: teamCount > 16 ? 1.5 : teamCount > 12 ? 1.3 : 1.2,
         wRepeat: 1.0,
-        wDispersion: 0.6,
-        wLateFairness: 1.0,
-        globalSlack: 1,
+        wDispersion: teamCount > 16 ? 0.8 : teamCount > 12 ? 0.7 : 0.6,
+        wLateFairness: teamCount > 16 ? 1.2 : teamCount > 12 ? 1.1 : 1.0,
+        globalSlack: teamCount > 16 ? 2 : teamCount > 12 ? 1 : 1,
         rollingSlack: 0,
         maxPasses: 3,
         dryRun: false,  // Run with full validation to prevent +0d games
@@ -879,7 +883,14 @@ export default function ScheduleTab({ slots: propSlots, teams: propTeams, divisi
         setCurrentSchedule(validSchedule)
         
         // Calculate total optimizable weeks (exclude week 1)
-        const totalWeeks = Math.ceil(validSchedule.length / 10)
+        // Use dynamic bucket size based on team count
+        const uniqueTeams = new Set()
+        validSchedule.forEach(game => {
+          if (game.HomeTeam) uniqueTeams.add(game.HomeTeam)
+          if (game.AwayTeam) uniqueTeams.add(game.AwayTeam)
+        })
+        const dynamicBucketSize = Math.max(4, Math.min(20, Math.floor(uniqueTeams.size / 2)))
+        const totalWeeks = Math.ceil(validSchedule.length / dynamicBucketSize)
         const optimizableWeeks = totalWeeks - 1  // Week 1 doesn't need optimization
         setTotalOptimizableWeeks(optimizableWeeks)
         console.log(`📊 Schedule has ${totalWeeks} weeks, ${optimizableWeeks} can be optimized`)
@@ -919,8 +930,13 @@ export default function ScheduleTab({ slots: propSlots, teams: propTeams, divisi
       // Use the SAME reliable date calculation method as the team card!
       // This method works because it uses the original Date strings directly
       
-      // Group games by week (bucket) - each bucket has 10 games
-      const bucketSize = 10
+      // Group games by week (bucket) - dynamic bucket size based on team count
+      const uniqueTeams = new Set()
+      currentSchedule.forEach(game => {
+        if (game.HomeTeam) uniqueTeams.add(game.HomeTeam)
+        if (game.AwayTeam) uniqueTeams.add(game.AwayTeam)
+      })
+      const bucketSize = Math.max(4, Math.min(20, Math.floor(uniqueTeams.size / 2)))
       const buckets = []
       for (let i = 0; i < currentSchedule.length; i += bucketSize) {
         buckets.push(currentSchedule.slice(i, i + bucketSize))

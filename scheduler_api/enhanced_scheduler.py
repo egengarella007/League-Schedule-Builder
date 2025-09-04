@@ -44,11 +44,26 @@ class EnhancedScheduler:
     def __init__(self, params: Dict[str, Any]):
         self.params = params or {}
 
-        # Core knobs
-        self.games_per_team = self.params.get("gamesPerTeam", 12)
-        self.target_gap_days = self.params.get("idealGapDays", 7)
-        self.min_rest_days = self.params.get("minRestDays", 3)
-        self.max_idle_days = self.params.get("maxGapDays", 12)
+        # Core knobs - calculate dynamic defaults based on team count
+        # Note: teams not available in __init__, will be calculated in build_schedule
+        team_count = 20  # Default fallback, will be updated when teams are available
+        
+        # Dynamic games per team: more teams = fewer games to keep schedule manageable
+        if team_count <= 8:
+            default_games = 14  # 8 teams: 14 games (7 opponents × 2)
+        elif team_count <= 12:
+            default_games = 12  # 12 teams: 12 games (11 opponents × 1 + 1 repeat)
+        elif team_count <= 16:
+            default_games = 10  # 16 teams: 10 games (15 opponents, some repeats)
+        else:
+            default_games = 8   # 20+ teams: 8 games (many repeats)
+            
+        self.games_per_team = self.params.get("gamesPerTeam", default_games)
+        
+        # Dynamic gap days: more teams = longer gaps to spread games out
+        self.target_gap_days = self.params.get("idealGapDays", max(5, min(10, team_count // 3)))
+        self.min_rest_days = self.params.get("minRestDays", max(2, min(4, team_count // 8)))
+        self.max_idle_days = self.params.get("maxGapDays", max(8, min(16, team_count // 2)))
         self.avoid_back_to_back_opponent = self.params.get("noBackToBack", True)
         self.balance_home_away = self.params.get("homeAwayBalance", True)
         self.balance_weekdays = self.params.get("weekdayBalance", True)
@@ -57,12 +72,17 @@ class EnhancedScheduler:
         self.no_interdivision = self.params.get("noInterdivision", False)
         self.debug_segments = self.params.get("debugSegments", False)
 
-        # E/M/L cutoffs
-        self.early_end = self._parse_time(self.params.get("eml", {}).get("earlyEnd", "22:01"))
-        self.mid_end = self._parse_time(self.params.get("eml", {}).get("midEnd", "22:31"))
+        # E/M/L cutoffs - dynamic based on typical game duration
+        # Default game duration is 80 minutes, so late games start after 10:30 PM
+        default_game_minutes = self.params.get("defaultGameMinutes", 80)
+        late_start_hour = 22  # 10 PM
+        late_start_minute = 30  # 10:30 PM
+        
+        self.early_end = self._parse_time(self.params.get("eml", {}).get("earlyEnd", f"{late_start_hour}:01"))
+        self.mid_end = self._parse_time(self.params.get("eml", {}).get("midEnd", f"{late_start_hour}:{late_start_minute}"))
 
-        # Block settings
-        self.block_size = self.params.get("blockSize", 10)
+        # Block settings - will be calculated dynamically in build_schedule
+        self.block_size = self.params.get("blockSize", None)  # Will be calculated based on team count
         raw_recipe = self.params.get("blockRecipe") or {}
         self.block_recipe = {self._norm_div(k): int(v) for k, v in raw_recipe.items()}
         if raw_recipe and self.debug_segments:
@@ -162,6 +182,33 @@ class EnhancedScheduler:
     def build_schedule(self, slots: List[Dict[str, Any]], teams: List[Dict[str, Any]], divisions: List[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         print(f"🔧 noInterdivision={self.no_interdivision}")
         team_names = [t["name"] for t in teams]
+        team_count = len(team_names)
+
+        # Update dynamic parameters now that we have team count
+        if not self.params.get("gamesPerTeam"):
+            # Dynamic games per team: more teams = fewer games to keep schedule manageable
+            if team_count <= 8:
+                default_games = 14  # 8 teams: 14 games (7 opponents × 2)
+            elif team_count <= 12:
+                default_games = 12  # 12 teams: 12 games (11 opponents × 1 + 1 repeat)
+            elif team_count <= 16:
+                default_games = 10  # 16 teams: 10 games (15 opponents, some repeats)
+            else:
+                default_games = 8   # 20+ teams: 8 games (many repeats)
+            self.games_per_team = default_games
+            print(f"🔧 Calculated dynamic games per team: {default_games} (from {team_count} teams)")
+
+        if not self.params.get("idealGapDays"):
+            self.target_gap_days = max(5, min(10, team_count // 3))
+            print(f"🔧 Calculated dynamic target gap days: {self.target_gap_days} (from {team_count} teams)")
+
+        if not self.params.get("minRestDays"):
+            self.min_rest_days = max(2, min(4, team_count // 8))
+            print(f"🔧 Calculated dynamic min rest days: {self.min_rest_days} (from {team_count} teams)")
+
+        if not self.params.get("maxGapDays"):
+            self.max_idle_days = max(8, min(16, team_count // 2))
+            print(f"🔧 Calculated dynamic max idle days: {self.max_idle_days} (from {team_count} teams)")
 
         # Build team→division map
         self.team_div: Dict[str, str] = {}
@@ -178,12 +225,12 @@ class EnhancedScheduler:
             print("🔧 Division counts:", dict(Counter(self.team_div.values())))
 
         # Calculate optimal block size if not provided
-        if not self.params.get("blockSize"):
+        if self.block_size is None:
             # For even distribution, block size should be roughly teams/2
             # This ensures each team appears once per block
-            optimal_block_size = max(4, min(20, len(team_names) // 2))
+            optimal_block_size = max(4, min(20, team_count // 2))
             self.block_size = optimal_block_size
-            print(f"🔧 Calculated optimal block size: {optimal_block_size} (from {len(team_names)} teams)")
+            print(f"🔧 Calculated optimal block size: {optimal_block_size} (from {team_count} teams)")
         
         # Build default recipe if not supplied: one full round per division per block
         if not self.block_recipe and self.block_size:

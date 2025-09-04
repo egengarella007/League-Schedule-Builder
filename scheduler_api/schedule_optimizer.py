@@ -476,7 +476,9 @@ def _find_better_team_combination(current_home: str, current_away: str, current_
             # For non-late games, we can be more flexible
             # But still try to balance overall late game distribution
             available_teams.sort(key=lambda t: late_counts.get(t, 0))
-            candidate_teams = available_teams[:6]  # More options for non-late games
+            # Dynamic candidate count based on available teams
+            max_candidates = min(6, len(available_teams))
+            candidate_teams = available_teams[:max_candidates]
         
         # Try to find a valid team combination
         for i in range(len(candidate_teams)):
