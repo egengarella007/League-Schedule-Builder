@@ -384,16 +384,42 @@ export default function ScheduleTab({ slots: propSlots, teams: propTeams, divisi
       console.log('🔧 Optimal block size:', optimalBlockSize)
       console.log('🔧 Games per week (matchups):', optimalBlockSize)
       
-            // Check division distribution in the schedule
-      const divCounts = currentSchedule.reduce((acc, game) => {
+            // Count actual teams per division (not games per division)
+      const divTeamCounts = {}
+      const teamsByDivision = {}
+      
+      // First, collect all unique teams by division
+      currentSchedule.forEach(game => {
         const div = game.Division?.toLowerCase().trim()
-        if (div === 'Tin Super' || div?.includes('12')) {
-          acc['Tin Super'] = (acc['Tin Super'] || 0) + 1
-        } else if (div === 'Tin South' || div?.includes('8')) {
-          acc['Tin South'] = (acc['Tin South'] || 0) + 1
+        let divisionName = 'unknown'
+        
+        if (div === 'tin super' || div?.includes('12')) {
+          divisionName = 'Tin Super'
+        } else if (div === 'tin south' || div?.includes('8')) {
+          divisionName = 'Tin South'
         }
+        
+        if (!teamsByDivision[divisionName]) {
+          teamsByDivision[divisionName] = new Set()
+        }
+        
+        // Add both home and away teams to the division
+        if (game.HomeTeam) teamsByDivision[divisionName].add(game.HomeTeam)
+        if (game.AwayTeam) teamsByDivision[divisionName].add(game.AwayTeam)
+      })
+      
+      // Count unique teams per division
+      Object.keys(teamsByDivision).forEach(div => {
+        if (div !== 'unknown') {
+          divTeamCounts[div] = teamsByDivision[div].size
+        }
+      })
+      
+      console.log('🔧 Division team counts:', divTeamCounts)
+      console.log('🔧 Teams by division:', Object.keys(teamsByDivision).reduce((acc, div) => {
+        acc[div] = Array.from(teamsByDivision[div])
         return acc
-      }, {})
+      }, {}))
       
       console.log('🔧 Processing ALL games for optimization (not just first block)')
       console.log('🔧 Total games to optimize:', currentSchedule.length)
@@ -508,12 +534,13 @@ export default function ScheduleTab({ slots: propSlots, teams: propTeams, divisi
         return
       }
       
-      // Calculate dynamic block recipe based on division sizes
+      // Calculate dynamic block recipe based on team counts per division
       const blockRecipe = {}
-      Object.keys(divCounts).forEach(div => {
-        if (divCounts[div] > 0) {
-          // For 22 teams: 11 games per week, distribute proportionally
-          const gamesPerBlock = Math.max(1, Math.floor((divCounts[div] / currentSchedule.length) * optimalBlockSize))
+      Object.keys(divTeamCounts).forEach(div => {
+        if (divTeamCounts[div] > 0) {
+          // Each division contributes roughly teams/2 games per block
+          // For example: 12 teams = 6 games, 8 teams = 4 games
+          const gamesPerBlock = Math.max(1, Math.floor(divTeamCounts[div] / 2))
           blockRecipe[div] = gamesPerBlock
         }
       })
@@ -521,17 +548,17 @@ export default function ScheduleTab({ slots: propSlots, teams: propTeams, divisi
       console.log('🔧 Dynamic optimization parameters:', {
         optimalBlockSize,
         blockRecipe,
-        divCounts,
+        divTeamCounts,
         totalGames: currentSchedule.length
       })
       
       const requestBody = {
         schedule: scheduleData,
         blockSize: optimalBlockSize,  // Dynamic: 11 for 22 teams
-        blockRecipe: blockRecipe,     // Dynamic: calculated based on division distribution
-        divisionSizes: divCounts, // Dynamic: calculated from actual division distribution
-        earlyStart: "10:01 PM",  // ✅ Use START time for EML classification
-        midStart: "10:31 PM",    // ✅ Use START time for EML classification
+        blockRecipe: blockRecipe,     // Dynamic: calculated based on team counts per division
+        divisionSizes: divTeamCounts, // Dynamic: actual team counts per division
+        earlyStart: "10:01 PM",  // Late game threshold (could be made dynamic)
+        midStart: "10:31 PM",    // Very late game threshold (could be made dynamic)
         target_week: currentWeek,  // 🎯 Target specific week for optimization
         defaultGameMinutes: teamCount <= 8 ? 60 : teamCount <= 16 ? 80 : 90, // Dynamic based on team count
         weights: { 

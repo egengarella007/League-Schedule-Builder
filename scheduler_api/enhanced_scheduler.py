@@ -44,26 +44,12 @@ class EnhancedScheduler:
     def __init__(self, params: Dict[str, Any]):
         self.params = params or {}
 
-        # Core knobs - calculate dynamic defaults based on team count
-        # Note: teams not available in __init__, will be calculated in build_schedule
-        team_count = 20  # Default fallback, will be updated when teams are available
-        
-        # Dynamic games per team: more teams = fewer games to keep schedule manageable
-        if team_count <= 8:
-            default_games = 14  # 8 teams: 14 games (7 opponents × 2)
-        elif team_count <= 12:
-            default_games = 12  # 12 teams: 12 games (11 opponents × 1 + 1 repeat)
-        elif team_count <= 16:
-            default_games = 10  # 16 teams: 10 games (15 opponents, some repeats)
-        else:
-            default_games = 8   # 20+ teams: 8 games (many repeats)
-            
-        self.games_per_team = self.params.get("gamesPerTeam", default_games)
-        
-        # Dynamic gap days: more teams = longer gaps to spread games out
-        self.target_gap_days = self.params.get("idealGapDays", max(5, min(10, team_count // 3)))
-        self.min_rest_days = self.params.get("minRestDays", max(2, min(4, team_count // 8)))
-        self.max_idle_days = self.params.get("maxGapDays", max(8, min(16, team_count // 2)))
+        # Core knobs - will be calculated dynamically in build_schedule when team count is available
+        # These will use parameter values if provided, otherwise calculate based on team count
+        self.games_per_team = self.params.get("gamesPerTeam", None)  # Will be calculated in build_schedule
+        self.target_gap_days = self.params.get("idealGapDays", None)  # Will be calculated in build_schedule
+        self.min_rest_days = self.params.get("minRestDays", None)  # Will be calculated in build_schedule
+        self.max_idle_days = self.params.get("maxGapDays", None)  # Will be calculated in build_schedule
         self.avoid_back_to_back_opponent = self.params.get("noBackToBack", True)
         self.balance_home_away = self.params.get("homeAwayBalance", True)
         self.balance_weekdays = self.params.get("weekdayBalance", True)
@@ -185,7 +171,7 @@ class EnhancedScheduler:
         team_count = len(team_names)
 
         # Update dynamic parameters now that we have team count
-        if not self.params.get("gamesPerTeam"):
+        if self.games_per_team is None:
             # Dynamic games per team: more teams = fewer games to keep schedule manageable
             if team_count <= 8:
                 default_games = 14  # 8 teams: 14 games (7 opponents × 2)
@@ -197,18 +183,26 @@ class EnhancedScheduler:
                 default_games = 8   # 20+ teams: 8 games (many repeats)
             self.games_per_team = default_games
             print(f"🔧 Calculated dynamic games per team: {default_games} (from {team_count} teams)")
+        else:
+            print(f"🔧 Using provided games per team: {self.games_per_team}")
 
-        if not self.params.get("idealGapDays"):
+        if self.target_gap_days is None:
             self.target_gap_days = max(5, min(10, team_count // 3))
             print(f"🔧 Calculated dynamic target gap days: {self.target_gap_days} (from {team_count} teams)")
+        else:
+            print(f"🔧 Using provided target gap days: {self.target_gap_days}")
 
-        if not self.params.get("minRestDays"):
+        if self.min_rest_days is None:
             self.min_rest_days = max(2, min(4, team_count // 8))
             print(f"🔧 Calculated dynamic min rest days: {self.min_rest_days} (from {team_count} teams)")
+        else:
+            print(f"🔧 Using provided min rest days: {self.min_rest_days}")
 
-        if not self.params.get("maxGapDays"):
+        if self.max_idle_days is None:
             self.max_idle_days = max(8, min(16, team_count // 2))
             print(f"🔧 Calculated dynamic max idle days: {self.max_idle_days} (from {team_count} teams)")
+        else:
+            print(f"🔧 Using provided max idle days: {self.max_idle_days}")
 
         # Build team→division map
         self.team_div: Dict[str, str] = {}
