@@ -70,6 +70,8 @@ export const ParamsSchema = z.object({
   eml: z.object({
     earlyStart: z.string().default("22:01"),
     midStart: z.string().default("22:31"),
+    earlyEnd: z.string().optional(),
+    midEnd: z.string().optional(),
   }),
 
   // Season settings

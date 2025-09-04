@@ -59,13 +59,13 @@ class EnhancedScheduler:
         self.debug_segments = self.params.get("debugSegments", False)
 
         # E/M/L cutoffs - uses parameters from user input, with fallback defaults
-        # User sets earlyStart and midStart in Parameters tab
+        # User sets earlyStart/midStart in Parameters tab, which become earlyEnd/midEnd for scheduler
         default_game_minutes = self.params.get("defaultGameMinutes", 80)
         late_start_hour = 22  # 10 PM - fallback default
         late_start_minute = 30  # 10:30 PM - fallback default
         
-        self.early_end = self._parse_time(self.params.get("eml", {}).get("earlyStart", f"{late_start_hour}:01"))
-        self.mid_end = self._parse_time(self.params.get("eml", {}).get("midStart", f"{late_start_hour}:{late_start_minute}"))
+        self.early_end = self._parse_time(self.params.get("eml", {}).get("earlyEnd", f"{late_start_hour}:01"))
+        self.mid_end = self._parse_time(self.params.get("eml", {}).get("midEnd", f"{late_start_hour}:{late_start_minute}"))
 
         # Block settings - will be calculated dynamically in build_schedule
         self.block_size = self.params.get("blockSize", None)  # Will be calculated based on team count

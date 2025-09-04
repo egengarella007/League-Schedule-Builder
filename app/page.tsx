@@ -160,7 +160,12 @@ export default function Home() {
             divisions={[]} // We'll load this from Supabase in the component
             params={{
               ...params,
-              eml: emlThresholds,
+              eml: {
+                earlyStart: emlThresholds.earlyStart,
+                midStart: emlThresholds.midStart,
+                earlyEnd: emlThresholds.earlyStart,  // earlyStart becomes earlyEnd for scheduler
+                midEnd: emlThresholds.midStart       // midStart becomes midEnd for scheduler
+              },
               gamesPerTeam: amountOfGames
             }}
           />
